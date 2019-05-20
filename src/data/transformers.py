@@ -103,3 +103,48 @@ class Normalize(BaseTransformer):
         for c, mean, std in zip(range(img.shape[-1]), means, stds):
             img[..., c] = (img[..., c] - mean) / std
         return img
+
+
+class RandomCrop(BaseTransformer):
+    """Crop a tuple of images at the same random location.
+    Args:
+        size (list): The desired output size of the crop.
+    """
+    def __init__(self, size):
+        self.size = size
+
+    def __call__(self, *imgs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be croped.
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The croped images.
+        """
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+
+        ndim = imgs[0].ndim
+        if ndim - 1 != len(self.size):
+            raise ValueError(f'The crop size should be the same as the image dimensions ({ndim - 1}). Got {len(self.size)}')
+
+        if ndim == 3:
+            h0, hn, w0, wn = self.get_coordinates(imgs[0], self.size)
+            imgs = tuple([img[h0: hn, w0: wn] for img in imgs])
+        elif ndim == 4:
+            h0, hn, w0, wn, d0, dn = self.get_coordinates(imgs[0], self.size)
+            imgs = tuple([img[h0: hn, w0: wn, d0: dn] for img in imgs])
+        return imgs
+
+        @staticmethod
+        def get_coordinates(img, size):
+            if img.ndim == 3:
+                h, w = img.shape[:-1]
+                ht, wt = size
+                h0, w0 = random.randint(0, h - ht), random.randint(0, w - wt)
+                return h0, h0 + ht, w0, w0 + wt
+            elif img.ndim == 4:
+                h, w, d = img.shape[:-1]
+                ht, wt, dt = size
+                h0, w0, d0 = random.randint(0, h - ht), random.randint(0, w - wt), random.randint(0, d - dt)
+                return h0, h0 + ht, w0, w0 + wt, d0, d0 + dt   

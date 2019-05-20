@@ -36,7 +36,7 @@ class BaseTransformer:
         return self.__class__.__name__
 
 
-class ToTensor:
+class ToTensor(BaseTransformer):
     """Convert a tuple of ``numpy.ndarray`` to a tuple of ``torch.Tensor``.
     """
     def __call__(self, *imgs):
@@ -60,7 +60,7 @@ class ToTensor:
         return imgs
 
 
-class Normalize:
+class Normalize(BaseTransformer):
     """Normalize a tuple of images with mean and standard deviation.
     Args:
         means (int or list): A sequence of means for each channel.

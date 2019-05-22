@@ -16,6 +16,3 @@ class BaseDataset(Dataset):
         self.type = type
         self.data_root = Path(data_root)
         self.transforms = compose(transforms)
-
-    def collate_fn(self, batch):
-        raise NotImplementedError

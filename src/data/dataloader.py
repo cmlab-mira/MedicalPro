@@ -25,13 +25,28 @@ class Dataloader(DataLoader):
             worker_init_fn = self._default_worker_init_fn
 
         if collate_fn is None:
-            super().__init__(dataset, batch_size, shuffle, sampler,
-                             batch_sampler, num_workers,
-                             pin_memory, drop_last, timeout, worker_init_fn)
+            super().__init__(dataset=dataset,
+                             batch_size=batch_size,
+                             shuffle=shuffle,
+                             sampler=sampler,
+                             batch_sampler=batch_sampler,
+                             num_workers=num_workers,
+                             pin_memory=pin_memory,
+                             drop_last=drop_last,
+                             timeout=timeout,
+                             worker_init_fn=worker_init_fn)
         else:
-            super().__init__(dataset, batch_size, shuffle, sampler,
-                             batch_sampler, num_workers, collate_fn,
-                             pin_memory, drop_last, timeout, worker_init_fn)
+            super().__init__(dataset=dataset,
+                             batch_size=batch_size,
+                             shuffle=shuffle,
+                             sampler=sampler,
+                             batch_sampler=batch_sampler,
+                             num_workers=num_workers,
+                             collate_fn=collate_fn,
+                             pin_memory=pin_memory,
+                             drop_last=drop_last,
+                             timeout=timeout,
+                             worker_init_fn=worker_init_fn)
 
     @staticmethod
     def _default_worker_init_fn(worker_id):

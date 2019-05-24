@@ -15,7 +15,7 @@ def compose(transforms):
     _transforms = []
     for transform in transforms:
         if transform.do:
-            cls_name = ''.join([str_.capitalize() for str_ in tranform.split('_'))
+            cls_name = ''.join([str_.capitalize() for str_ in transform.name.split('_')])
             cls = getattr(importlib.import_module('src.data.transformers'), cls_name)
             _transforms.append(cls(**transform.kwargs))
 
@@ -49,7 +49,7 @@ class ToTensor(BaseTransformer):
         """
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
-        
+
         # (H, W, C) -> (C, H, W); (H, W, D, C) -> (C, D, H, W)
         if all(img.ndim == 3 for img in imgs):
             imgs = tuple(img.float().permute(2, 0, 1).contiguous() for img in map(torch.from_numpy, imgs))
@@ -147,4 +147,4 @@ class RandomCrop(BaseTransformer):
                 h, w, d = img.shape[:-1]
                 ht, wt, dt = size
                 h0, w0, d0 = random.randint(0, h - ht), random.randint(0, w - wt), random.randint(0, d - dt)
-                return h0, h0 + ht, w0, w0 + wt, d0, d0 + dt   
+                return h0, h0 + ht, w0, w0 + wt, d0, d0 + dt

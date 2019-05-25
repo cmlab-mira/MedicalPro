@@ -1,5 +1,4 @@
 import torch
-from torchvision.transforms import Compose
 import importlib
 import numpy as np
 
@@ -37,6 +36,35 @@ class BaseTransformer:
 
     def __repr__(self):
         return self.__class__.__name__
+
+
+class Compose(BaseTransformer):
+    """Compose several transforms together.
+    Args:
+         transforms (Box): The preprocessing and augmentation techniques applied to the data.
+    """
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+    def __call__(self, *imgs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be transformed.
+
+        Returns:
+            imgs (tuple of torch.Tensor): The transformed images.
+        """
+        for transform in self.transforms:
+            imgs = transform(imgs)
+        return imgs
+
+    def __repr__(self):
+        format_string = self.__class__.__name__ + '('
+        for t in self.transforms:
+            format_string += '\n'
+            format_string += '    {0}'.format(t)
+        format_string += '\n)'
+        return format_string
 
 
 class ToTensor(BaseTransformer):

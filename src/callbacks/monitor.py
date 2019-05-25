@@ -23,8 +23,9 @@ class Monitor:
         """Whether to save the model checkpoint.
         Args:
             epoch (int): The number of trained epochs.
+
         Returns:
-            saved_path (Path): The path to save the model ckeckpoint.
+            path (Path): The path to save the model checkpoint.
         """
         if epoch % self.saved_freq == 0
             return self.root / f'model_{epoch}.pth'
@@ -35,8 +36,9 @@ class Monitor:
         """Whether to save the best model checkpoint.
         Args:
             valid_log (dict): The validation log information.
+
         Returns:
-            saved_path (Path): The path to save the model ckeckpoint.
+            path (Path): The path to save the model checkpoint.
         """
         score = valid_log[self.target]
         if self.mode == 'max' and score > self.best:

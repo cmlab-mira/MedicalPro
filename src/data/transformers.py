@@ -10,8 +10,11 @@ def compose(transforms):
         transforms (Box): The preprocessing and augmentation techniques applied to the data.
 
     Returns:
-        transforms (list of ``Transformer`` objects): The list of transformers.
+        transforms (list of BaseTransformer): The list of transformers.
     """
+    if transforms is None:
+        return None
+
     _transforms = []
     for transform in transforms:
         if transform.do:
@@ -19,7 +22,7 @@ def compose(transforms):
             cls = getattr(importlib.import_module('src.data.transformers'), cls_name)
             _transforms.append(cls(**transform.kwargs))
 
-    # Append the default transformer ``ToTensor``
+    # Append the default transformer ToTensor.
     _transforms.append(ToTensor())
 
     transforms = Compose(_transforms)
@@ -37,7 +40,7 @@ class BaseTransformer:
 
 
 class ToTensor(BaseTransformer):
-    """Convert a tuple of ``numpy.ndarray`` to a tuple of ``torch.Tensor``.
+    """Convert a tuple of numpy.ndarray to a tuple of torch.Tensor.
     """
     def __call__(self, *imgs):
         """

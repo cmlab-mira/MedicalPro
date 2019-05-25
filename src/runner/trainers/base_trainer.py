@@ -49,25 +49,32 @@ class BaseTrainer:
 
             # Save the regular checkpoint.
             if self.monitor.is_saved(self.epoch):
-                saved_path = self.monitor.root / f'model_{self.epoch}'
-                logging.info(f'Save the checkpoint to {saved_path}.')
-                self.save(saved_path)
+                path = self.monitor.root / f'model_{self.epoch}'
+                logging.info(f'Save the checkpoint to {path}.')
+                self.save(path)
 
             # Save the best checkpoint.
             if self.monitor.is_best(valid_log):
-                saved_path = self.monitor.root / 'model_best'
-                logging.info(f'Save the best checkpoint to {saved_path} ({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
-                self.save(saved_path)
+                path = self.monitor.root / 'model_best'
+                logging.info(f'Save the best checkpoint to {path} ({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                self.save(path)
             else:
                 logging.info(f'The best checkpoint is remained (at epoch {self.epoch - self.monitor.not_imporved_count}, {self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
 
             # Early stop.
-            if self.monitor.is_early_stopped:
+            if self.monitor.is_early_stopped():
                 logging.info('Early stopped.')
                 break
 
     def _run_epoch(self, mode):
         """Run an epoch for training.
+        Args:
+            mode (str): The mode of running an epoch ('training' or 'validation').
+
+        Returns:
+            log (dict): The log information.
+            batch (dict): The last batch of the data.
+            output (torch.Tensor): The corresponding output.
         """
         if mode == 'training':
             self.net.train()
@@ -107,12 +114,16 @@ class BaseTrainer:
         return log, batch, output
 
     def _run_iter(self, batch):
-        """Run an iteration for training.
+        """Run an iteration to obtain the output and the losses.
+        Args:
+            batch (dict): A batch of data.
         """
         raise NotImplementedError
 
     def _init_log(self):
         """Initialize the log.
+        Returns:
+            log (dict): The initialized log.
         """
         log = {}
         log['Loss'] = 0
@@ -123,6 +134,10 @@ class BaseTrainer:
         return log
 
     def save(self, path):
+        """Save the model checkpoint.
+        Args:
+            path (Path): The path to save the model checkpoint.
+        """
         torch.save({
             'epoch': self.epoch,
             'net': self.net.state_dict(),
@@ -131,6 +146,10 @@ class BaseTrainer:
         }, path)
 
     def load(self, path):
+        """Load the model checkpoint.
+        Args:
+            path (Path): The path to load the model checkpoint.
+        """
         checkpoint = torch.load(path, map_location=self.device)
         self.epoch = checkpoint['epoch'] + 1
         self.net.load_state_dict(checkpoint['net'])

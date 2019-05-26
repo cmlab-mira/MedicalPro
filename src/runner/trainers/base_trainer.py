@@ -32,12 +32,13 @@ class BaseTrainer:
         self.logger = logger
         self.monitor = monitor
         self.num_epochs = num_epochs
+        self.epoch = 1
 
     def train(self):
         """The training process.
         """
-        for epoch in range(1, self.num_epochs + 1):
-            logging.info(f'\nEpoch {epoch}.')
+        while self.epoch <= self.num_epochs:
+            logging.info(f'\nEpoch {self.epoch}.')
             train_log, train_batch, train_output = self._run_epoch('training')
             logging.info(f'Train log: {train_log}.')
             valid_log, valid_batch, valid_output = self._run_epoch('validation')
@@ -65,6 +66,8 @@ class BaseTrainer:
             if self.monitor.is_early_stopped():
                 logging.info('Early stopped.')
                 break
+
+            self.epoch +=1
 
     def _run_epoch(self, mode):
         """Run an epoch for training.

@@ -1,7 +1,3 @@
-random_seed: 3319
-device:
-    type: cuda
-    ordinal: 0
 dataset:
     data_root: root
     transforms:
@@ -13,3 +9,8 @@ dataloader:
     batch_size: 128
     drop_last: true
     num_workers: 8
+net:
+    name: 'MyNet'
+    kwargs:
+        in_channels: 3
+        out_channels: 10

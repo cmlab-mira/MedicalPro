@@ -70,10 +70,11 @@ class Compose(BaseTransformer):
 class ToTensor(BaseTransformer):
     """Convert a tuple of numpy.ndarray to a tuple of torch.Tensor.
     """
-    def __call__(self, *imgs, **kwargs):
+    def __call__(self, *imgs, dtypes=None, **kwargs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be converted to tensor.
+            dtypes (sequence of torch.dtype): The corresponding dtype of the images (default: None, transform all the images' dtype to torch.float).
 
         Returns:
             imgs (tuple of torch.Tensor): The converted images.
@@ -81,13 +82,14 @@ class ToTensor(BaseTransformer):
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
 
-        # (H, W, C) -> (C, H, W); (H, W, D, C) -> (C, D, H, W)
-        if all(img.ndim == 3 for img in imgs):
-            imgs = tuple(img.float().permute(2, 0, 1).contiguous() for img in map(torch.from_numpy, imgs))
-        elif all(img.ndim == 4 for img in imgs):
-            imgs = tuple(img.float().permute(3, 2, 0, 1).contiguous() for img in map(torch.from_numpy, imgs))
+        if dtypes:
+            if not all(isinstance(dtype, torch.dtype) for dtype in dtypes):
+                raise TypeError('All of the dtypes should be torch.dtype.')
+            if len(dtypes) != len(imgs):
+                raise ValueError('The number of the dtypes should be the same as the images.')
+            imgs = tuple(img.to(dtype) for img, dtype in zip(map(torch.from_numpy, imgs), dtypes))
         else:
-            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+            imgs = tuple(img.float() for img in map(torch.from_numpy, imgs))
         return imgs
 
 
@@ -116,7 +118,6 @@ class Normalize(BaseTransformer):
         Args:
             imgs (tuple of numpy.ndarray): The images to be normalized.
             tags (sequence): The corresponding tags of the images ('input' or 'target').
-
         Returns:
             imgs (tuple of numpy.ndarray): The normalized images.
         """

@@ -31,7 +31,7 @@ def compose(transforms):
 class BaseTransformer:
     """The base class for all transformers.
     """
-    def __call__(self, *imgs):
+    def __call__(self, *imgs, **kwargs):
         raise NotImplementedError
 
     def __repr__(self):
@@ -46,7 +46,7 @@ class Compose(BaseTransformer):
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, *imgs):
+    def __call__(self, *imgs, **kwargs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be transformed.
@@ -55,7 +55,7 @@ class Compose(BaseTransformer):
             imgs (tuple of torch.Tensor): The transformed images.
         """
         for transform in self.transforms:
-            imgs = transform(imgs)
+            imgs = transform(imgs, **kwargs)
         return imgs
 
     def __repr__(self):
@@ -70,7 +70,7 @@ class Compose(BaseTransformer):
 class ToTensor(BaseTransformer):
     """Convert a tuple of numpy.ndarray to a tuple of torch.Tensor.
     """
-    def __call__(self, *imgs):
+    def __call__(self, *imgs, **kwargs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be converted to tensor.
@@ -98,16 +98,24 @@ class Normalize(BaseTransformer):
         stds (int or list): A sequence of standard deviations for each channel.
     """
     def __init__(self, means, stds):
-        if means is not None and stds is not None:
+        if means is None and stds is None:
+            pass
+        elif means is not None and stds is not None:
+            if len(means) != len(stds):
+                raise ValueError('The number of the means should be the same as the standard deviations.')
             means = tuple(means)
             stds = tuple(stds)
+        else:
+            raise ValueError('Both the means and the standard deviations should have values or None.')
+
         self.means = means
         self.stds = stds
 
-    def __call__(self, *imgs):
+    def __call__(self, *imgs, tags=None, **kwargs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be normalized.
+            tags (sequence): The corresponding tags of the images ('input' or 'target').
 
         Returns:
             imgs (tuple of numpy.ndarray): The normalized images.
@@ -115,18 +123,28 @@ class Normalize(BaseTransformer):
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
 
-        # Apply image-level normalization.
-        if self.means is None and self.stds is None:
-            _imgs = []
-            for img in imgs:
-                axis = tuple(range(img.ndim - 1))
-                means = img.mean(axis=axis)
-                stds = img.std(axis=axis)
-                img = self.normalize(img, means, stds)
-                _imgs.append(img)
-            imgs = tuple(_imgs)
+        if tags:
+            if len(tags) != len(imgs):
+                raise ValueError('The number of the tags should be the same as the images.')
+            if not all(tag in ['input', 'target'] for tag in tags):
+                raise ValueError("All of the tags should be either 'input' or 'target'.")
         else:
-            imgs = map(functools.partial(self.normalize, means=self.means, stds=self.stds), imgs)
+            tags = [None] * len(imgs)
+
+        _imgs = []
+        for img, tag in zip(imgs, tags):
+            if tag == 'input' or tag is None:
+                if self.means is None and self.stds is None: # Apply image-level normalization.
+                    axis = tuple(range(img.ndim - 1))
+                    means = img.mean(axis=axis)
+                    stds = img.std(axis=axis)
+                    img = self.normalize(img, means, stds)
+                else:
+                    img = self.normalize(img, self.means, self.stds)
+            elif tag == 'target':
+                pass
+            _imgs.append(img)
+        imgs = tuple(_imgs)
         return imgs
 
     @staticmethod
@@ -144,7 +162,7 @@ class RandomCrop(BaseTransformer):
     def __init__(self, size):
         self.size = size
 
-    def __call__(self, *imgs):
+    def __call__(self, *imgs, **kwargs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be croped.

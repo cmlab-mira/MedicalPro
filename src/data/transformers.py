@@ -113,28 +113,29 @@ class Normalize(BaseTransformer):
         self.means = means
         self.stds = stds
 
-    def __call__(self, *imgs, tags=None, **kwargs):
+    def __call__(self, *imgs, normalize_tags=None, **kwargs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be normalized.
-            tags (sequence): The corresponding tags of the images ('input' or 'target').
+            normalize_tags (sequence of bool): The corresponding tags of the images (default: None, normalize all the images).
+
         Returns:
             imgs (tuple of numpy.ndarray): The normalized images.
         """
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
 
-        if tags:
-            if len(tags) != len(imgs):
+        if normalize_tags:
+            if len(normalize_tags) != len(imgs):
                 raise ValueError('The number of the tags should be the same as the images.')
-            if not all(tag in ['input', 'target'] for tag in tags):
-                raise ValueError("All of the tags should be either 'input' or 'target'.")
+            if not all(normalize_tag in [True, False] for normalize_tag in normalize_tags):
+                raise ValueError("All of the tags should be either True or False.")
         else:
-            tags = [None] * len(imgs)
+            normalize_tags = [None] * len(imgs)
 
         _imgs = []
-        for img, tag in zip(imgs, tags):
-            if tag == 'input' or tag is None:
+        for img, normalize_tag in zip(imgs, normalize_tags):
+            if normalize_tag is None or normalize_tag is True:
                 if self.means is None and self.stds is None: # Apply image-level normalization.
                     axis = tuple(range(img.ndim - 1))
                     means = img.mean(axis=axis)
@@ -142,7 +143,7 @@ class Normalize(BaseTransformer):
                     img = self.normalize(img, means, stds)
                 else:
                     img = self.normalize(img, self.means, self.stds)
-            elif tag == 'target':
+            elif normalize_tag is False:
                 pass
             _imgs.append(img)
         imgs = tuple(_imgs)

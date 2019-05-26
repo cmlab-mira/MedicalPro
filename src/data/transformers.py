@@ -175,6 +175,9 @@ class RandomCrop(BaseTransformer):
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
 
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+
         ndim = imgs[0].ndim
         if ndim - 1 != len(self.size):
             raise ValueError(f'The crop size should be the same as the image dimensions ({ndim - 1}). Got {len(self.size)}')

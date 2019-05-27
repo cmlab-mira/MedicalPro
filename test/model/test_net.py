@@ -1,5 +1,3 @@
-import pytest
-import torch
 import torch.nn as nn
 import numpy as np
 from box import Box
@@ -16,13 +14,14 @@ class MyNet(BaseNet):
         self.conv2 = nn.Conv2d(10, self.out_channels, kernel_size=3)
 
 
-class TestNetClass():
-    @classmethod
-    def setup_class(self):
-        self.cfg = Box.from_yaml(filename=Path("test/configs/test_config.yaml"))
+def test_base_net():
+    """Test to build `BaseNet`.
+    """
+    net = BaseNet()
 
-    def test_base_net(self):
-        net = BaseNet()
 
-    def test_my_net(self):
-        net = MyNet(**self.cfg.net.kwargs)
+def test_my_net():
+    """Test to build the derived network.
+    """
+    cfg = Box.from_yaml(filename=Path("test/configs/test_config.yaml"))
+    net = MyNet(**cfg.net.kwargs)

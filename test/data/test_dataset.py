@@ -9,31 +9,40 @@ from src.data.dataloader import Dataloader
 
 class MyDataset(BaseDataset):
 
-    def __init__(self, dummy_input, **kwargs):
+    def __init__(self, image, label, **kwargs):
         super().__init__(**kwargs)
-        self.data, self.label = dummy_input;
+        self.image, self.label = image, label;
 
     def __getitem__(self, index):
-        return {"input": self.data[index], "target": self.label[index]}
+        return {"input": self.image[index], "target": self.label[index]}
 
     def __len__(self):
-        return self.data.shape[0]
+        return self.image.shape[0]
 
 
 def test_base_dataset(config):
+    """Test to create `baseDataset`.
+    """
     cfg = config
     dataset = BaseDataset(**cfg.dataset)
 
 
-def test_base_dataset(config, dummy_input):
+def test_my_dataset(config, dummy_input):
+    """Test to create the derived dataset.
+    """
     cfg = config
-    dataset = MyDataset(dummy_input(dim=2), **cfg.dataset)
+    image, label = dummy_input(image_size=(1000, 512, 512, 3),
+                               label_size=(1000, 512, 512, 1))
+    dataset = MyDataset(image, label, **cfg.dataset)
 
 
 def test_data_loader(config, dummy_input):
+    """Test to create the dataloader and yield a batch of data.
+    """
     cfg = config
-    image, label = dummy_input(dim=2)
-    dataset = MyDataset(dummy_input(dim=2), **cfg.dataset)
+    image, label = dummy_input(image_size=(1000, 512, 512, 3),
+                               label_size=(1000, 512, 512, 1))
+    dataset = MyDataset(image, label, **cfg.dataset)
     dataloader = Dataloader(dataset, **cfg.dataloader)
 
     for batch in dataloader:

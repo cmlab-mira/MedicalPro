@@ -13,14 +13,8 @@ def config():
 
 @pytest.fixture
 def dummy_input():
-    def _generate(dim):
-        if dim == 2:
-            # B, H, W, C
-            image = np.random.uniform(size=(32, 512, 512, 3))
-            label = np.random.randint(0, 3, (32, 512, 512, 1))
-        elif dim == 3:
-            # B, H, W, D, C
-            image = np.random.uniform(size=(32, 512, 512, 20, 3))
-            label = np.random.randint(0, 3, (32, 512, 512, 20, 1))
+    def _generate(image_size, label_size):
+        image = np.random.uniform(size=image_size)
+        label = np.random.randint(0, 3, size=label_size)
         return image, label
     return _generate

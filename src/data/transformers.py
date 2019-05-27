@@ -141,9 +141,9 @@ class Normalize(BaseTransformer):
                     axis = tuple(range(img.ndim - 1))
                     means = img.mean(axis=axis)
                     stds = img.std(axis=axis)
-                    img = self.normalize(img, means, stds)
+                    img = self._normalize(img, means, stds)
                 else:
-                    img = self.normalize(img, self.means, self.stds)
+                    img = self._normalize(img, self.means, self.stds)
             elif normalize_tag is False:
                 pass
             _imgs.append(img)
@@ -151,7 +151,7 @@ class Normalize(BaseTransformer):
         return imgs
 
     @staticmethod
-    def normalize(img, means, stds):
+    def _normalize(img, means, stds):
         img = img.copy()
         for c, mean, std in zip(range(img.shape[-1]), means, stds):
             img[..., c] = (img[..., c] - mean) / std
@@ -185,15 +185,15 @@ class RandomCrop(BaseTransformer):
             raise ValueError(f'The crop size should be the same as the image dimensions ({ndim - 1}). Got {len(self.size)}')
 
         if ndim == 3:
-            h0, hn, w0, wn = self.get_coordinates(imgs[0], self.size)
+            h0, hn, w0, wn = self._get_coordinates(imgs[0], self.size)
             imgs = tuple([img[h0: hn, w0: wn] for img in imgs])
         elif ndim == 4:
-            h0, hn, w0, wn, d0, dn = self.get_coordinates(imgs[0], self.size)
+            h0, hn, w0, wn, d0, dn = self._get_coordinates(imgs[0], self.size)
             imgs = tuple([img[h0: hn, w0: wn, d0: dn] for img in imgs])
         return imgs
 
     @staticmethod
-    def get_coordinates(img, size):
+    def _get_coordinates(img, size):
         if img.ndim == 3:
             h, w = img.shape[:-1]
             ht, wt = size

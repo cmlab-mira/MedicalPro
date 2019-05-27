@@ -1,5 +1,6 @@
 import torch
 import pytest
+import numpy as np
 
 from src.data.transformers import compose
 from src.data.transformers import ToTensor
@@ -64,7 +65,8 @@ def test_normalize(dummy_input):
     _image, _label = transform(image, label, normalize_tags=[True, False])
     assert not (image == _image).all()
     assert (label == _label).all()
-
+    assert np.abs(np.mean(_image)-0) < 1e-8
+    assert np.abs(np.std(_image)-1) < 1e-8
 
 def test_to_tensor(dummy_input):
     """Test to convert the input numpy array to torch tensor.

@@ -9,10 +9,9 @@ from src.data.dataloader import Dataloader
 
 class MyDataset(BaseDataset):
 
-    def __init__(self, **kwargs):
+    def __init__(self, dummy_input, **kwargs):
         super().__init__(**kwargs)
-        self.data = np.random.uniform((1000, 512, 512))
-        self.label = np.random.uniform((1000, 512, 512))
+        self.data, self.label = dummy_input;
 
     def __getitem__(self, index):
         return {"input": self.data[index], "target": self.label[index]}
@@ -21,23 +20,22 @@ class MyDataset(BaseDataset):
         return self.data.shape[0]
 
 
-class TestDataClass:
+def test_base_dataset(config):
+    cfg = config
+    dataset = BaseDataset(**cfg.dataset)
 
-    @classmethod
-    def setup_class(self):
-        self.cfg = Box.from_yaml(filename=Path("test/configs/test_config.yaml"))
-        self.cfg.dataset.type = 'train'
 
-    def test_base_dataset(self):
-        dataset = BaseDataset(**self.cfg.dataset)
+def test_base_dataset(config, dummy_input):
+    cfg = config
+    dataset = MyDataset(dummy_input(dim=2), **cfg.dataset)
 
-    def test_base_dataset(self):
-        dataset = MyDataset(**self.cfg.dataset)
 
-    def test_data_loader(self):
-        dataset = MyDataset(**self.cfg.dataset)
-        dataloader = Dataloader(dataset, **self.cfg.dataloader)
+def test_data_loader(config, dummy_input):
+    cfg = config
+    image, label = dummy_input(dim=2)
+    dataset = MyDataset(dummy_input(dim=2), **cfg.dataset)
+    dataloader = Dataloader(dataset, **cfg.dataloader)
 
-        for batch in dataloader:
-            assert batch['input'].shape == (self.cfg.dataloader.batch_size, 512, 512)
-            assert batch['target'].shape == (self.cfg.dataloader.batch_size, 512, 512)
+    for batch in dataloader:
+        assert batch['input'].shape == (cfg.dataloader.batch_size, *image.shape[1:])
+        assert batch['target'].shape == (cfg.dataloader.batch_size, *label.shape[1:])

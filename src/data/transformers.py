@@ -1,4 +1,5 @@
 import torch
+import random
 import importlib
 import numpy as np
 
@@ -55,7 +56,7 @@ class Compose(BaseTransformer):
             imgs (tuple of torch.Tensor): The transformed images.
         """
         for transform in self.transforms:
-            imgs = transform(imgs, **kwargs)
+            imgs = transform(*imgs, **kwargs)
         return imgs
 
     def __repr__(self):
@@ -151,6 +152,7 @@ class Normalize(BaseTransformer):
 
     @staticmethod
     def normalize(img, means, stds):
+        img = img.copy()
         for c, mean, std in zip(range(img.shape[-1]), means, stds):
             img[..., c] = (img[..., c] - mean) / std
         return img
@@ -190,15 +192,15 @@ class RandomCrop(BaseTransformer):
             imgs = tuple([img[h0: hn, w0: wn, d0: dn] for img in imgs])
         return imgs
 
-        @staticmethod
-        def get_coordinates(img, size):
-            if img.ndim == 3:
-                h, w = img.shape[:-1]
-                ht, wt = size
-                h0, w0 = random.randint(0, h - ht), random.randint(0, w - wt)
-                return h0, h0 + ht, w0, w0 + wt
-            elif img.ndim == 4:
-                h, w, d = img.shape[:-1]
-                ht, wt, dt = size
-                h0, w0, d0 = random.randint(0, h - ht), random.randint(0, w - wt), random.randint(0, d - dt)
-                return h0, h0 + ht, w0, w0 + wt, d0, d0 + dt
+    @staticmethod
+    def get_coordinates(img, size):
+        if img.ndim == 3:
+            h, w = img.shape[:-1]
+            ht, wt = size
+            h0, w0 = random.randint(0, h - ht), random.randint(0, w - wt)
+            return h0, h0 + ht, w0, w0 + wt
+        elif img.ndim == 4:
+            h, w, d = img.shape[:-1]
+            ht, wt, dt = size
+            h0, w0, d0 = random.randint(0, h - ht), random.randint(0, w - wt), random.randint(0, d - dt)
+            return h0, h0 + ht, w0, w0 + wt, d0, d0 + dt

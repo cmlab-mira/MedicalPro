@@ -195,7 +195,7 @@ class RandomCrop(BaseTransformer):
     @staticmethod
     def _get_coordinates(img, size):
         if any(i - j < 0 for i, j in zip(img.shape, size)):
-            raise ValueError(f'The image ({image.shape}) is smaller than the crop size ({size}). Please use a smaller crop size.')
+            raise ValueError(f'The image ({img.shape}) is smaller than the crop size ({size}). Please use a smaller crop size.')
 
         if img.ndim == 3:
             h, w = img.shape[:-1]

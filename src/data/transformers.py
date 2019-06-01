@@ -2,6 +2,7 @@ import torch
 import random
 import importlib
 import numpy as np
+import SimpleITK as sitk
 
 
 def compose(transforms):
@@ -75,7 +76,7 @@ class ToTensor(BaseTransformer):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be converted to tensor.
-            dtypes (sequence of torch.dtype): The corresponding dtype of the images (default: None, transform all the images' dtype to torch.float).
+            dtypes (sequence of torch.dtype, optional): The corresponding dtype of the images (default: None, transform all the images' dtype to torch.float).
 
         Returns:
             imgs (tuple of torch.Tensor): The converted images.
@@ -95,7 +96,7 @@ class ToTensor(BaseTransformer):
 
 
 class Normalize(BaseTransformer):
-    """Normalize a tuple of images with mean and standard deviation.
+    """Normalize a tuple of images with the means and the standard deviations.
     Args:
         means (int or list): A sequence of means for each channel.
         stds (int or list): A sequence of standard deviations for each channel.
@@ -118,7 +119,7 @@ class Normalize(BaseTransformer):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be normalized.
-            normalize_tags (sequence of bool): The corresponding tags of the images (default: None, normalize all the images).
+            normalize_tags (sequence of bool, optional): The corresponding tags of the images (default: None, normalize all the images).
 
         Returns:
             imgs (tuple of numpy.ndarray): The normalized images.
@@ -152,6 +153,15 @@ class Normalize(BaseTransformer):
 
     @staticmethod
     def _normalize(img, means, stds):
+        """Normalize the image with the means and the standard deviations.
+        Args:
+            img (numpy.ndarray): The image to be normalized.
+            means (list): A sequence of means for each channel.
+            stds (list): A sequence of standard deviations for each channel.
+
+        Returns:
+            img (numpy.ndarray): The normalized image.
+        """
         img = img.copy()
         for c, mean, std in zip(range(img.shape[-1]), means, stds):
             img[..., c] = (img[..., c] - mean) / std
@@ -161,7 +171,7 @@ class Normalize(BaseTransformer):
 class RandomCrop(BaseTransformer):
     """Crop a tuple of images at the same random location.
     Args:
-        size (list): The desired output size of the crop.
+        size (list): The desired output size of the cropped images.
     """
     def __init__(self, size):
         self.size = size
@@ -169,10 +179,10 @@ class RandomCrop(BaseTransformer):
     def __call__(self, *imgs, **kwargs):
         """
         Args:
-            imgs (tuple of numpy.ndarray): The images to be croped.
+            imgs (tuple of numpy.ndarray): The images to be cropped.
 
         Returns:
-            imgs (tuple of numpy.ndarray): The croped images.
+            imgs (tuple of numpy.ndarray): The cropped images.
         """
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
@@ -182,7 +192,7 @@ class RandomCrop(BaseTransformer):
 
         ndim = imgs[0].ndim
         if ndim - 1 != len(self.size):
-            raise ValueError(f'The dimensions of the crop size should be the same as the image ({ndim - 1}). Got {len(self.size)}')
+            raise ValueError(f'The dimensions of the cropped size should be the same as the image ({ndim - 1}). Got {len(self.size)}')
 
         if ndim == 3:
             h0, hn, w0, wn = self._get_coordinates(imgs[0], self.size)
@@ -194,8 +204,16 @@ class RandomCrop(BaseTransformer):
 
     @staticmethod
     def _get_coordinates(img, size):
+        """Compute the coordinates of the cropped image.
+        Args:
+            img (numpy.ndarray): The image to be cropped.
+            size (list): The desired output size of the cropped image.
+
+        Returns:
+            coordinates (tuple): The coordinates of the cropped image.
+        """
         if any(i - j < 0 for i, j in zip(img.shape, size)):
-            raise ValueError(f'The image ({img.shape}) is smaller than the crop size ({size}). Please use a smaller crop size.')
+            raise ValueError(f'The image ({img.shape}) is smaller than the cropped size ({size}). Please use a smaller cropped size.')
 
         if img.ndim == 3:
             h, w = img.shape[:-1]
@@ -212,10 +230,10 @@ class RandomCrop(BaseTransformer):
 class RandomElasticDeformation(BaseTransformer):
     """Do the random elastic deformation as used in U-Net and V-Net by using the bspline transform.
     Args:
-        do_z_deformation (bool): Whether to apply the deformation along the z dimension (default: False).
-        num_ctrl_points (int): The number of the control points to form the control point grid (default: 4).
-        sigma (int or float): The number to determine the extent of deformation (default: 15).
-        prob (float): The probability of applying the deformation (default: 0.5).
+        do_z_deformation (bool, optional): Whether to apply the deformation along the z dimension (default: False).
+        num_ctrl_points (int, optional): The number of the control points to form the control point grid (default: 4).
+        sigma (int or float, optional): The number to determine the extent of deformation (default: 15).
+        prob (float, optional): The probability of applying the deformation (default: 0.5).
     """
     def __init__(self, do_z_deformation=False, num_ctrl_points=4, sigma=15, prob=0.5):
         self.do_z_deformation = do_z_deformation
@@ -228,7 +246,7 @@ class RandomElasticDeformation(BaseTransformer):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be deformed.
-            elastic_deformation_orders (sequence of int): The corresponding interpolation order of the images (default: None, the interpolation order would be 3 for all the images).
+            elastic_deformation_orders (sequence of int, optional): The corresponding interpolation order of the images (default: None, the interpolation order would be 3 for all the images).
 
         Returns:
             imgs (tuple of numpy.ndarray): The deformed images.
@@ -277,7 +295,7 @@ class RandomElasticDeformation(BaseTransformer):
         """Apply the bspline transform.
         Args:
             img (np.ndarray): The image to be deformed.
-            order (int): The interpolation order (default: 3, should be 0, 1 or 3).
+            order (int, optional): The interpolation order (default: 3, should be 0, 1 or 3).
 
         Returns:
             img (np.ndarray): The deformed image.

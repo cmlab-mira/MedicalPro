@@ -1,8 +1,10 @@
 import torch
 import random
 import importlib
+import functools
 import numpy as np
 import SimpleITK as sitk
+from skimage.transform import resize
 
 
 def compose(transforms):
@@ -166,6 +168,38 @@ class Normalize(BaseTransformer):
         for c, mean, std in zip(range(img.shape[-1]), means, stds):
             img[..., c] = (img[..., c] - mean) / std
         return img
+
+
+class Resize(BaseTransformer):
+    """Resize a tuple of images to the same size.
+    Args:
+        size (list): The desired output size of the resized images.
+    """
+    def __init__(self, size):
+        self.size = size
+        self._resize = functools.partial(resize, mode='constant', preserve_range=True)
+
+    def __call__(self, *imgs, resize_orders=None, **kwargs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be resized.
+            resize_orders (sequence of int, optional): The corresponding interpolation order of the images (default: None, the interpolation order would be 1 for all the images).
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The resized images.
+        """
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+
+        ndim = imgs[0].ndim
+        if ndim - 1 != len(self.size):
+            raise ValueError(f'The dimensions of the resized size should be the same as the image ({ndim - 1}). Got {len(self.size)}')
+
+        if resize_orders:
+            imgs = tuple(self._resize(img, self.size, order) for img, order in zip(imgs, resize_orders))
+        else:
+            imgs = tuple(self._resize(img, self.size) for img in imgs)
+        return imgs
 
 
 class RandomCrop(BaseTransformer):

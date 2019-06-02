@@ -158,7 +158,7 @@ class BaseTrainer:
             'epoch': self.epoch,
             'net': self.net.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'scheduler': self.scheduler.state_dict(),
+            'scheduler': self.scheduler.state_dict() if self.scheduler else None,
             'monitor': self.monitor
         }, path)
 
@@ -171,5 +171,6 @@ class BaseTrainer:
         self.epoch = checkpoint['epoch'] + 1
         self.net.load_state_dict(checkpoint['net'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
-        self.scheduler.load_state_dict(checkpoint['scheduler'])
+        if checkpoint['scheduler']:
+            self.scheduler.load_state_dict(checkpoint['scheduler'])
         self.monitor = checkpoint['monitor']

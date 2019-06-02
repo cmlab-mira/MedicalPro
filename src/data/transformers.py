@@ -196,7 +196,7 @@ class Resize(BaseTransformer):
             raise ValueError(f'The dimensions of the resized size should be the same as the image ({ndim - 1}). Got {len(self.size)}')
 
         if resize_orders:
-            imgs = tuple(self._resize(img, self.size, order) for img, order in zip(imgs, resize_orders))
+            imgs = tuple(self._resize(img, self.size, order).astype(img.dtype) for img, order in zip(imgs, resize_orders))
         else:
             imgs = tuple(self._resize(img, self.size) for img in imgs)
         return imgs

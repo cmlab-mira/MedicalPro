@@ -7,6 +7,7 @@ from src.data.transformers import ToTensor
 from src.data.transformers import Normalize
 from src.data.transformers import RandomCrop
 from src.data.transformers import Resize
+from src.data.transformers import RandomElasticDeformation
 
 
 def test_composed_transformer(config, dummy_input):
@@ -95,6 +96,31 @@ def test_resize(dummy_input):
     assert _label.dtype == label.dtype
 
 
+def test_random_elastic_deformation(dummy_input):
+    """Test to normalize the 2D and 3D images with specific tags
+    to indicate whether to perform normalization to the object.
+    """
+    # Test the 2D image: H, W, C
+    image, label = dummy_input(image_size=(512, 512, 3),
+                               label_size=(512, 512, 1))
+    transform = RandomElasticDeformation()
+    _image, _label = transform(image, label, elastic_deformation_orders=[3, 0])
+    assert _image.shape == image.shape
+    assert _image.dtype == image.dtype
+    assert _label.shape == label.shape
+    assert _label.dtype == label.dtype
+
+    # Test the 3D image: H, W, D, C
+    image, label = dummy_input(image_size=(512, 512, 20, 3),
+                               label_size=(512, 512, 20, 1))
+    transform = RandomElasticDeformation()
+    _image, _label = transform(image, label, elastic_deformation_orders=[3, 0])
+    assert _image.shape == image.shape
+    assert _image.dtype == image.dtype
+    assert _label.shape == label.shape
+    assert _label.dtype == label.dtype
+    
+    
 def test_to_tensor(dummy_input):
     """Test to convert the input numpy array to torch tensor.
     `dtypes` can be used to assign the output tensor types.

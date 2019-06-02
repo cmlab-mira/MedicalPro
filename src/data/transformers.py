@@ -325,7 +325,7 @@ class RandomElasticDeformation(BaseTransformer):
         params = tuple(params)
         self.bspline_transform.SetParameters(params)
 
-    def _apply_bspline_transform(img, order=3):
+    def _apply_bspline_transform(self, img, order=3):
         """Apply the bspline transform.
         Args:
             img (np.ndarray): The image to be deformed.

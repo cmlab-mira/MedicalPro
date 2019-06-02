@@ -1,6 +1,8 @@
 import torch
 import logging
 from tqdm import tqdm
+import random
+import numpy as np
 
 
 class BaseTrainer:
@@ -44,6 +46,9 @@ class BaseTrainer:
         """The training process.
         """
         while self.epoch <= self.num_epochs:
+            # Reset the numpy random seed.
+            np.random.seed(random.getstate()[1][1] + self.epoch)
+
             logging.info(f'\nEpoch {self.epoch}.')
             train_log, train_batch, train_output = self._run_epoch('training')
             logging.info(f'Train log: {train_log}.')

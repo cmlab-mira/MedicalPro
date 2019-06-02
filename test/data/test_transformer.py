@@ -6,6 +6,7 @@ from src.data.transformers import compose
 from src.data.transformers import ToTensor
 from src.data.transformers import Normalize
 from src.data.transformers import RandomCrop
+from src.data.transformers import Resize
 
 
 def test_composed_transformer(config, dummy_input):
@@ -67,6 +68,32 @@ def test_normalize(dummy_input):
     assert (label == _label).all()
     assert np.abs(np.mean(_image)-0) < 1e-8
     assert np.abs(np.std(_image)-1) < 1e-8
+
+
+def test_resize(dummy_input):
+    """Test to normalize the 2D and 3D images with specific tags
+    to indicate whether to perform normalization to the object.
+    """
+    # Test the 2D image: H, W, C
+    image, label = dummy_input(image_size=(512, 512, 3),
+                               label_size=(512, 512, 1))
+    transform = Resize(size=(64, 64))
+    _image, _label = transform(image, label, resize_orders=[3, 0])
+    assert _image.shape == (64, 64, 3)
+    assert _image.dtype == image.dtype
+    assert _label.shape == (64, 64, 1)
+    assert _label.dtype == label.dtype
+
+    # Test the 3D image: H, W, D, C
+    image, label = dummy_input(image_size=(512, 512, 20, 3),
+                               label_size=(512, 512, 20, 1))
+    transform = Resize(size=(64, 64, 10))
+    _image, _label = transform(image, label, resize_orders=[3, 0])
+    assert _image.shape == (64, 64, 10, 3)
+    assert _image.dtype == image.dtype
+    assert _label.shape == (64, 64, 10, 1)
+    assert _label.dtype == label.dtype
+
 
 def test_to_tensor(dummy_input):
     """Test to convert the input numpy array to torch tensor.

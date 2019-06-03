@@ -60,6 +60,10 @@ class Compose(BaseTransformer):
         """
         for transform in self.transforms:
             imgs = transform(*imgs, **kwargs)
+
+        # Returns the torch.Tensor instead of a tuple of torch.Tensor if there is only one image.
+        if len(imgs) == 1:
+            imgs = imgs[0]
         return imgs
 
     def __repr__(self):

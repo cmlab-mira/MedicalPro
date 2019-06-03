@@ -7,16 +7,16 @@ import SimpleITK as sitk
 from skimage.transform import resize
 
 
-def compose(transforms):
+def compose(transforms=None):
     """Compose several transformers together.
     Args:
-        transforms (Box): The preprocessing and augmentation techniques applied to the data.
+        transforms (Box): The preprocessing and augmentation techniques applied to the data (default: None).
 
     Returns:
-        transforms (list of BaseTransformer): The list of transformers.
+        transforms (Compose): The list of BaseTransformer.
     """
     if transforms is None:
-        return None
+        return Compose([ToTensor()])
 
     _transforms = []
     for transform in transforms:

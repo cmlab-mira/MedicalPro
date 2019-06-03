@@ -298,11 +298,7 @@ class RandomElasticDeformation(BaseTransformer):
         if random.random() < self.prob:
             self._init_bspline_transform(imgs[0].shape)
             if elastic_deformation_orders:
-                _imgs = []
-                for img, order in zip(imgs, elastic_deformation_orders):
-                    img = self._apply_bspline_transform(img, order)
-                    _imgs.append(img)
-                imgs = tuple(_imgs)
+                imgs = tuple(self._apply_bspline_transform(img, order) for img, order in zip(imgs, elastic_deformation_orders))
             else:
                 imgs = map(self._apply_bspline_transform, imgs)
         return imgs

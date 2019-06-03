@@ -10,8 +10,11 @@ class BaseLogger:
         dummy_input (torch.Tensor): The dummy input for plotting the network architecture.
     """
     def __init__(self, log_dir, net, dummy_input):
+        # Plot the network architecture.
+        with SummaryWriter(log_dir) as w:
+            w.add_graph(net, dummy_input)
+
         self.writer = SummaryWriter(log_dir)
-        self._add_graph(net, dummy_input)
 
     def write(self, epoch, train_log, train_batch, train_output, valid_log, valid_batch, valid_output):
         """Plot the network architecture and the visualization results.
@@ -26,14 +29,6 @@ class BaseLogger:
         """
         self._add_scalars(epoch, train_log, valid_log)
         self._add_images(train_batch, train_output, valid_batch, valid_output)
-
-    def _add_graph(self, net, dummy_input):
-        """Plot the network architecture.
-        Args:
-            net (BaseNet): The network architecture.
-            dummy_input (torch.Tensor): The dummy input for plotting the network architecture.
-        """
-        self.writer.add_graph(net, dummy_input)
 
     def _add_scalars(self, epoch, train_log, valid_log):
         """Plot the training curves.

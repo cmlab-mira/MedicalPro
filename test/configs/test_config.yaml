@@ -1,8 +1,6 @@
 dataset:
     data_root: root
     transforms:
-        - name: 'random_elastic_deformation'
-          do: true
         - name: 'random_crop'
           do: true
           kwargs:

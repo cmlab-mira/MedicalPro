@@ -16,16 +16,20 @@ def test_composed_transformer(config, dummy_input):
     """
     cfg = config
     transforms = compose(cfg.dataset.transforms)
-    print(transforms)
 
     # H, W, C
     image, label = dummy_input(image_size=(512, 512, 3),
                                label_size=(512, 512, 1))
-    _image, _label = transforms(image, label, dtypes=[torch.float, torch.long])
+    _image, _label = transforms(image, label, dtypes=[torch.float, torch.long], elastic_deformation_orders=[3, 0])
     assert _image.dtype == torch.float
     assert _image.size() == (256, 256, image.shape[2])
     assert _label.dtype == torch.long
     assert _label.size() == (256, 256, label.shape[2])
+
+    # Test feeding only image
+    _image = transforms(image, dtypes=[torch.float])
+    assert _image.dtype == torch.float
+    assert _image.size() == (256, 256, image.shape[2])
 
 
 def test_random_crop(dummy_input):

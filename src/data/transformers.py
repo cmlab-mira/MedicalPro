@@ -104,10 +104,10 @@ class ToTensor(BaseTransformer):
 class Normalize(BaseTransformer):
     """Normalize a tuple of images with the means and the standard deviations.
     Args:
-        means (int or list): A sequence of means for each channel.
-        stds (int or list): A sequence of standard deviations for each channel.
+        means (int or list): A sequence of means for each channel (default: None).
+        stds (int or list): A sequence of standard deviations for each channel (default: None).
     """
-    def __init__(self, means, stds):
+    def __init__(self, means=None, stds=None):
         if means is None and stds is None:
             pass
         elif means is not None and stds is not None:

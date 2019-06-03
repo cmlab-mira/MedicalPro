@@ -105,8 +105,8 @@ class ToTensor(BaseTransformer):
 class Normalize(BaseTransformer):
     """Normalize a tuple of images with the means and the standard deviations.
     Args:
-        means (int or list): A sequence of means for each channel (default: None).
-        stds (int or list): A sequence of standard deviations for each channel (default: None).
+        means (list, optional): A sequence of means for each channel (default: None).
+        stds (list, optional): A sequence of standard deviations for each channel (default: None).
     """
     def __init__(self, means=None, stds=None):
         if means is None and stds is None:
@@ -114,8 +114,6 @@ class Normalize(BaseTransformer):
         elif means is not None and stds is not None:
             if len(means) != len(stds):
                 raise ValueError('The number of the means should be the same as the standard deviations.')
-            means = tuple(means)
-            stds = tuple(stds)
         else:
             raise ValueError('Both the means and the standard deviations should have values or None.')
 

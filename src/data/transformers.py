@@ -23,7 +23,8 @@ def compose(transforms):
         if transform.do:
             cls_name = ''.join([str_.capitalize() for str_ in transform.name.split('_')])
             cls = getattr(importlib.import_module('src.data.transformers'), cls_name)
-            _transforms.append(cls(**transform.kwargs))
+            kwargs = transform.get('kwargs')
+            _transforms.append(cls(**kwargs) if kwargs else cls())
 
     # Append the default transformer ToTensor.
     _transforms.append(ToTensor())

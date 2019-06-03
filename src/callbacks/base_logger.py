@@ -30,6 +30,11 @@ class BaseLogger:
         self._add_scalars(epoch, train_log, valid_log)
         self._add_images(train_batch, train_output, valid_batch, valid_output)
 
+    def close(self):
+        """Close the writer.
+        """
+        self.writer.close()
+
     def _add_scalars(self, epoch, train_log, valid_log):
         """Plot the training curves.
         Args:

@@ -80,6 +80,9 @@ class BaseTrainer:
                 break
 
             self.epoch +=1
+        
+        # Close the SummeryWriter of the logger
+        self.logger.close()
 
     def _run_epoch(self, mode):
         """Run an epoch for training.

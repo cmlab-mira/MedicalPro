@@ -138,7 +138,7 @@ class BaseTrainer:
     def _run_iter(self, batch):
         """Run an iteration to obtain the output and the losses.
         Args:
-            batch (dict): A batch of data.
+            batch (tuple or dict): A batch of data.
         """
         raise NotImplementedError
 

@@ -27,7 +27,7 @@ class Monitor:
         Returns:
             path (Path): The path to save the model checkpoint.
         """
-        if epoch % self.saved_freq == 0
+        if epoch % self.saved_freq == 0:
             return self.root / f'model_{epoch}.pth'
         else:
             return None

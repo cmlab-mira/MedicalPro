@@ -1,26 +1,30 @@
 import torch
 import random
 import importlib
+import functools
 import numpy as np
+import SimpleITK as sitk
+from skimage.transform import resize
 
 
-def compose(transforms):
+def compose(transforms=None):
     """Compose several transformers together.
     Args:
-        transforms (Box): The preprocessing and augmentation techniques applied to the data.
+        transforms (Box): The preprocessing and augmentation techniques applied to the data (default: None).
 
     Returns:
-        transforms (list of BaseTransformer): The list of transformers.
+        transforms (Compose): The list of BaseTransformer.
     """
     if transforms is None:
-        return None
+        return Compose([ToTensor()])
 
     _transforms = []
     for transform in transforms:
         if transform.do:
             cls_name = ''.join([str_.capitalize() for str_ in transform.name.split('_')])
             cls = getattr(importlib.import_module('src.data.transformers'), cls_name)
-            _transforms.append(cls(**transform.kwargs))
+            kwargs = transform.get('kwargs')
+            _transforms.append(cls(**kwargs) if kwargs else cls())
 
     # Append the default transformer ToTensor.
     _transforms.append(ToTensor())
@@ -57,6 +61,10 @@ class Compose(BaseTransformer):
         """
         for transform in self.transforms:
             imgs = transform(*imgs, **kwargs)
+
+        # Returns the torch.Tensor instead of a tuple of torch.Tensor if there is only one image.
+        if len(imgs) == 1:
+            imgs = imgs[0]
         return imgs
 
     def __repr__(self):
@@ -75,7 +83,7 @@ class ToTensor(BaseTransformer):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be converted to tensor.
-            dtypes (sequence of torch.dtype): The corresponding dtype of the images (default: None, transform all the images' dtype to torch.float).
+            dtypes (sequence of torch.dtype, optional): The corresponding dtype of the images (default: None, transform all the images' dtype to torch.float).
 
         Returns:
             imgs (tuple of torch.Tensor): The converted images.
@@ -95,19 +103,17 @@ class ToTensor(BaseTransformer):
 
 
 class Normalize(BaseTransformer):
-    """Normalize a tuple of images with mean and standard deviation.
+    """Normalize a tuple of images with the means and the standard deviations.
     Args:
-        means (int or list): A sequence of means for each channel.
-        stds (int or list): A sequence of standard deviations for each channel.
+        means (list, optional): A sequence of means for each channel (default: None).
+        stds (list, optional): A sequence of standard deviations for each channel (default: None).
     """
-    def __init__(self, means, stds):
+    def __init__(self, means=None, stds=None):
         if means is None and stds is None:
             pass
         elif means is not None and stds is not None:
             if len(means) != len(stds):
                 raise ValueError('The number of the means should be the same as the standard deviations.')
-            means = tuple(means)
-            stds = tuple(stds)
         else:
             raise ValueError('Both the means and the standard deviations should have values or None.')
 
@@ -118,7 +124,7 @@ class Normalize(BaseTransformer):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be normalized.
-            normalize_tags (sequence of bool): The corresponding tags of the images (default: None, normalize all the images).
+            normalize_tags (sequence of bool, optional): The corresponding tags of the images (default: None, normalize all the images).
 
         Returns:
             imgs (tuple of numpy.ndarray): The normalized images.
@@ -152,16 +158,57 @@ class Normalize(BaseTransformer):
 
     @staticmethod
     def _normalize(img, means, stds):
+        """Normalize the image with the means and the standard deviations.
+        Args:
+            img (numpy.ndarray): The image to be normalized.
+            means (list): A sequence of means for each channel.
+            stds (list): A sequence of standard deviations for each channel.
+
+        Returns:
+            img (numpy.ndarray): The normalized image.
+        """
         img = img.copy()
         for c, mean, std in zip(range(img.shape[-1]), means, stds):
             img[..., c] = (img[..., c] - mean) / std
         return img
 
 
+class Resize(BaseTransformer):
+    """Resize a tuple of images to the same size.
+    Args:
+        size (list): The desired output size of the resized images.
+    """
+    def __init__(self, size):
+        self.size = size
+        self._resize = functools.partial(resize, mode='constant', preserve_range=True)
+
+    def __call__(self, *imgs, resize_orders=None, **kwargs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be resized.
+            resize_orders (sequence of int, optional): The corresponding interpolation order of the images (default: None, the interpolation order would be 1 for all the images).
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The resized images.
+        """
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+
+        ndim = imgs[0].ndim
+        if ndim - 1 != len(self.size):
+            raise ValueError(f'The dimensions of the resized size should be the same as the image ({ndim - 1}). Got {len(self.size)}')
+
+        if resize_orders:
+            imgs = tuple(self._resize(img, self.size, order).astype(img.dtype) for img, order in zip(imgs, resize_orders))
+        else:
+            imgs = tuple(self._resize(img, self.size) for img in imgs)
+        return imgs
+
+
 class RandomCrop(BaseTransformer):
     """Crop a tuple of images at the same random location.
     Args:
-        size (list): The desired output size of the crop.
+        size (list): The desired output size of the cropped images.
     """
     def __init__(self, size):
         self.size = size
@@ -169,10 +216,10 @@ class RandomCrop(BaseTransformer):
     def __call__(self, *imgs, **kwargs):
         """
         Args:
-            imgs (tuple of numpy.ndarray): The images to be croped.
+            imgs (tuple of numpy.ndarray): The images to be cropped.
 
         Returns:
-            imgs (tuple of numpy.ndarray): The croped images.
+            imgs (tuple of numpy.ndarray): The cropped images.
         """
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
@@ -182,7 +229,7 @@ class RandomCrop(BaseTransformer):
 
         ndim = imgs[0].ndim
         if ndim - 1 != len(self.size):
-            raise ValueError(f'The dimensions of the crop size should be the same as the image ({ndim - 1}). Got {len(self.size)}')
+            raise ValueError(f'The dimensions of the cropped size should be the same as the image ({ndim - 1}). Got {len(self.size)}')
 
         if ndim == 3:
             h0, hn, w0, wn = self._get_coordinates(imgs[0], self.size)
@@ -194,8 +241,16 @@ class RandomCrop(BaseTransformer):
 
     @staticmethod
     def _get_coordinates(img, size):
+        """Compute the coordinates of the cropped image.
+        Args:
+            img (numpy.ndarray): The image to be cropped.
+            size (list): The desired output size of the cropped image.
+
+        Returns:
+            coordinates (tuple): The coordinates of the cropped image.
+        """
         if any(i - j < 0 for i, j in zip(img.shape, size)):
-            raise ValueError(f'The image ({img.shape}) is smaller than the crop size ({size}). Please use a smaller crop size.')
+            raise ValueError(f'The image ({img.shape}) is smaller than the cropped size ({size}). Please use a smaller cropped size.')
 
         if img.ndim == 3:
             h, w = img.shape[:-1]
@@ -207,3 +262,94 @@ class RandomCrop(BaseTransformer):
             ht, wt, dt = size
             h0, w0, d0 = random.randint(0, h - ht), random.randint(0, w - wt), random.randint(0, d - dt)
             return h0, h0 + ht, w0, w0 + wt, d0, d0 + dt
+
+
+class RandomElasticDeformation(BaseTransformer):
+    """Do the random elastic deformation as used in U-Net and V-Net by using the bspline transform.
+    Args:
+        do_z_deformation (bool, optional): Whether to apply the deformation along the z dimension (default: False).
+        num_ctrl_points (int, optional): The number of the control points to form the control point grid (default: 4).
+        sigma (int or float, optional): The number to determine the extent of deformation (default: 15).
+        prob (float, optional): The probability of applying the deformation (default: 0.5).
+    """
+    def __init__(self, do_z_deformation=False, num_ctrl_points=4, sigma=15, prob=0.5):
+        self.do_z_deformation = do_z_deformation
+        self.num_ctrl_points = max(num_ctrl_points, 2)
+        self.sigma = max(sigma, 1)
+        self.prob = max(0, min(prob, 1))
+        self.bspline_transform = None
+
+    def __call__(self, *imgs, elastic_deformation_orders=None, **kwargs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be deformed.
+            elastic_deformation_orders (sequence of int, optional): The corresponding interpolation order of the images (default: None, the interpolation order would be 3 for all the images).
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The deformed images.
+        """
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+
+        if random.random() < self.prob:
+            self._init_bspline_transform(imgs[0].shape)
+            if elastic_deformation_orders:
+                imgs = tuple(self._apply_bspline_transform(img, order) for img, order in zip(imgs, elastic_deformation_orders))
+            else:
+                imgs = map(self._apply_bspline_transform, imgs)
+        return imgs
+
+    def _init_bspline_transform(self, shape):
+        """Initialize the bspline transform.
+        Args:
+            shape (tuple): The size of the control point grid.
+        """
+        # Remove the channel dimension.
+        shape = shape[:-1]
+
+        # Initialize the control point grid.
+        img = sitk.GetImageFromArray(np.zeros(shape))
+        mesh_size = [self.num_ctrl_points] * img.GetDimension()
+        self.bspline_transform = sitk.BSplineTransformInitializer(img, mesh_size)
+
+        # Set the parameters of the bspline transform randomly.
+        params = self.bspline_transform.GetParameters()
+        params = np.asarray(params, dtype=np.float64)
+        params = params + np.random.randn(params.shape[0]) * self.sigma
+        if len(shape) == 3 and not self.do_z_deformation:
+            params[0: len(params) // 3] = 0
+        params = tuple(params)
+        self.bspline_transform.SetParameters(params)
+
+    def _apply_bspline_transform(self, img, order=3):
+        """Apply the bspline transform.
+        Args:
+            img (np.ndarray): The image to be deformed.
+            order (int, optional): The interpolation order (default: 3, should be 0, 1 or 3).
+
+        Returns:
+            img (np.ndarray): The deformed image.
+        """
+        # Create the resampler.
+        resampler = sitk.ResampleImageFilter()
+        if order == 0:
+            resampler.SetInterpolator(sitk.sitkNearestNeighbor)
+        elif order == 1:
+            resampler.SetInterpolator(sitk.sitkLinear)
+        elif order == 3:
+            resampler.SetInterpolator(sitk.sitkBSpline)
+        else:
+            raise ValueError(f'The interpolation order should be 0, 1 or 3. Got {order}.')
+
+        # Apply the bspline transform.
+        shape = img.shape
+        img = sitk.GetImageFromArray(np.squeeze(img))
+        resampler.SetReferenceImage(img)
+        resampler.SetDefaultPixelValue(0)
+        resampler.SetTransform(self.bspline_transform)
+        img = resampler.Execute(img)
+        img = sitk.GetArrayFromImage(img).reshape(shape)
+        return img

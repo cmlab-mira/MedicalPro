@@ -7,13 +7,12 @@ dataset:
               size: [256, 256]
         - name: 'normalize'
           do: true
-          kwargs:
-              means:
-              stds:
+
 dataloader:
     batch_size: 128
     drop_last: true
     num_workers: 8
+
 net:
     name: 'MyNet'
     kwargs:

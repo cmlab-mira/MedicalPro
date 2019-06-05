@@ -134,7 +134,7 @@ class BaseTrainer:
                 score = metric(output, batch)
                 log[metric.__class__.__name__] += score.item() * batch_size
             count += batch_size
-            trange.set_postfix(**log)
+            trange.set_postfix(**dict((key, value / count) for key, value in log.items()))
 
         for key in log:
             log[key] /= count

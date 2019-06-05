@@ -88,7 +88,7 @@ class BaseTrainer:
 
         Returns:
             log (dict): The log information.
-            batch (dict): The last batch of the data.
+            batch (dict or tuple): The last batch of the data.
             output (torch.Tensor): The corresponding output.
         """
         if mode == 'training':
@@ -103,6 +103,11 @@ class BaseTrainer:
         log = self._init_log()
         count = 0
         for batch in trange:
+            if isinstance(batch, dict):
+                batch = dict((key, data.to(self.device)) for key, data in batch.items())
+            else:
+                batch = tuple(data.to(self.device) for data in batch)
+
             if mode == 'training':
                 output, *losses = self._run_iter(batch)
                 loss = (torch.cat(losses) * self.loss_weights).sum()
@@ -138,7 +143,11 @@ class BaseTrainer:
     def _run_iter(self, batch):
         """Run an iteration to obtain the output and the losses.
         Args:
-            batch (tuple or dict): A batch of data.
+            batch (dict or tuple): A batch of data.
+
+        Returns:
+            output (torch.Tensor): The computed output.
+            losses (sequence of torch.Tensor): The computed losses.
         """
         raise NotImplementedError
 

@@ -28,7 +28,7 @@ class BaseLogger:
             valid_output (torch.Tensor): The validation output.
         """
         self._add_scalars(epoch, train_log, valid_log)
-        self._add_images(train_batch, train_output, valid_batch, valid_output)
+        self._add_images(epoch, train_batch, train_output, valid_batch, valid_output)
 
     def close(self):
         """Close the writer.
@@ -45,9 +45,10 @@ class BaseLogger:
         for key in train_log:
             self.writer.add_scalars(key, {'train': train_log[key], 'valid': valid_log[key]}, epoch)
 
-    def _add_images(self, train_batch, train_output, valid_batch, valid_output):
+    def _add_images(self, epoch, train_batch, train_output, valid_batch, valid_output):
         """Plot the visualization results.
         Args:
+            epoch (int): The number of trained epochs.
             train_batch (dict): The training batch.
             train_output (torch.Tensor): The training output.
             valid_batch (dict): The validation batch.

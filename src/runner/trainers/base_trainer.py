@@ -109,14 +109,14 @@ class BaseTrainer:
                 batch = tuple(data.to(self.device) for data in batch)
 
             if mode == 'training':
-                output, *losses = self._run_iter(batch)
+                output, losses = self._run_iter(batch)
                 loss = (torch.cat(losses) * self.loss_weights).sum()
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
             else:
                 with torch.no_grads():
-                    output, *losses = self._run_iter(batch)
+                    output, losses = self._run_iter(batch)
                     loss = (torch.cat(losses) * self.loss_weights).sum()
 
             if self.scheduler is None:

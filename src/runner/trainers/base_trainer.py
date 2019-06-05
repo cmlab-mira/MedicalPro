@@ -72,7 +72,7 @@ class BaseTrainer:
                 logging.info(f'Save the best checkpoint to {path} ({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
                 self.save(path)
             else:
-                logging.info(f'The best checkpoint is remained (at epoch {self.epoch - self.monitor.not_imporved_count}, {self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                logging.info(f'The best checkpoint is remained (at epoch {self.epoch - self.monitor.not_improved_count}, {self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
 
             # Early stop.
             if self.monitor.is_early_stopped():
@@ -115,7 +115,7 @@ class BaseTrainer:
                 loss.backward()
                 self.optimizer.step()
             else:
-                with torch.no_grads():
+                with torch.no_grad():
                     output, losses = self._run_iter(batch)
                     loss = (torch.stack(losses) * self.loss_weights).sum()
 

@@ -16,14 +16,14 @@ class BaseTrainer:
         loss_weights (list of float): The corresponding weights of loss functions.
         metrics (list of torch.nn.Module): The metric functions.
         optimizer (torch.optim.Optimizer): The algorithm to train the network.
-        scheduler (torch.optim._LRScheduler): The scheduler to adjust the learning rate.
+        lr_scheduler (torch.optim._LRScheduler): The scheduler to adjust the learning rate.
         logger (Logger): The object for recording the log information and visualization.
         monitor (Monitor): The object to determine whether to save the checkpoint.
         num_epochs (int): The total number of training epochs.
     """
     def __init__(self, device, train_dataloader, valid_dataloader,
                  net, losses, loss_weights, metrics, optimizer,
-                 scheduler, logger, monitor, num_epochs):
+                 lr_scheduler, logger, monitor, num_epochs):
         self.device = device
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
@@ -33,9 +33,9 @@ class BaseTrainer:
         self.metrics = [metric.to(device) for metric in metrics]
         self.optimizer = optimizer
 
-        if isinstance(scheduler, torch.optim.lr_scheduler.CyclicLR):
+        if isinstance(lr_scheduler, torch.optim.lr_scheduler.CyclicLR):
             raise NotImplementedError('Do not support torch.optim.lr_scheduler.CyclicLR scheduler yet.')
-        self.scheduler = scheduler
+        self.lr_scheduler = lr_scheduler
 
         self.logger = logger
         self.monitor = monitor
@@ -122,12 +122,12 @@ class BaseTrainer:
                     output, losses = self._run_iter(batch)
                     loss = (torch.stack(losses) * self.loss_weights).sum()
 
-            if self.scheduler is None:
+            if self.lr_scheduler is None:
                 pass
-            elif isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau) and mode == 'validation':
-                self.scheduler.step(loss)
+            elif isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau) and mode == 'validation':
+                self.lr_scheduler.step(loss)
             else:
-                self.scheduler.step()
+                self.lr_scheduler.step()
 
             batch_size = output.size(0)
             log['Loss'] += loss.item() * batch_size
@@ -176,7 +176,7 @@ class BaseTrainer:
             'epoch': self.epoch,
             'net': self.net.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'scheduler': self.scheduler.state_dict() if self.scheduler else None,
+            'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None,
             'monitor': self.monitor
         }, path)
 
@@ -189,6 +189,6 @@ class BaseTrainer:
         self.epoch = checkpoint['epoch'] + 1
         self.net.load_state_dict(checkpoint['net'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
-        if checkpoint['scheduler']:
-            self.scheduler.load_state_dict(checkpoint['scheduler'])
+        if checkpoint['lr_scheduler']:
+            self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         self.monitor = checkpoint['monitor']

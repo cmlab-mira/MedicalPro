@@ -1,17 +1,18 @@
 import math
+from pathlib import Path
 
 
 class Monitor:
     """The class to monitor the training process and save the model checkpoints.
     Args:
-        root (Path): The root directory of the saved model checkpoints.
+        root (str): The root directory of the saved model checkpoints.
         mode (str): The mode of the monitor ('max' or 'min').
-        target (str): The target of the monitor, usually is loss value or metric score.
+        target (str): The target of the monitor ('Loss', 'MyLoss' or 'MyMetric').
         saved_freq (int): The saved frequency.
-        early_stop (int): The number early stop.
+        early_stop (int): The number of epochs to early stop the training if monitor target is not improved (default: 0, do not early stop the training).
     """
-    def __init__(self, root, mode, target, saved_freq, early_stop):
-        self.root = root
+    def __init__(self, root, mode, target, saved_freq, early_stop=0):
+        self.root = Path(root)
         self.mode = mode
         self.target = target
         self.saved_freq = saved_freq
@@ -54,6 +55,6 @@ class Monitor:
             return None
 
     def is_early_stopped(self):
-        """Whether to stop the training.
+        """Whether to early stop the training.
         """
         return self.not_improved_count == self.early_stop

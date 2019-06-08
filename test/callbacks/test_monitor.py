@@ -5,7 +5,7 @@ from src.callbacks.monitor import Monitor
 
 
 def test_monitor():
-    monitor = Monitor(root=Path('./checkpoints'),
+    monitor = Monitor(root='./checkpoints',
                       mode='max',
                       target='loss',
                       saved_freq=2,

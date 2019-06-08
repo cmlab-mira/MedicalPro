@@ -9,7 +9,7 @@ from pathlib import Path
 
 from src.model.nets.base_net import BaseNet
 from src.runner.trainers.base_trainer import BaseTrainer
-from src.callbacks.base_logger import BaseLogger
+from src.callbacks.loggers.base_logger import BaseLogger
 from src.callbacks.monitor import Monitor
 
 
@@ -86,13 +86,13 @@ def test_trainer(tmpdir):
         loss_weights = [1.0]
         metrics = [MyMetric()]
         optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.5)
-        scheduler = None
+        lr_scheduler = None
 
         logger = MyLogger(log_dir='./models', net=net, dummy_input=torch.randn(1, 1, 28, 28))
         monitor = Monitor(root=Path('./models'), mode='min', target='Loss', saved_freq=5, early_stop=0)
         num_epochs = 10
 
-        trainer = MyTrainer(device=device, train_dataloader=train_dataloader, valid_dataloader=valid_dataloader, net=net, losses=losses, loss_weights=loss_weights, metrics=metrics, optimizer=optimizer, scheduler=scheduler, logger=logger, monitor=monitor, num_epochs=num_epochs)
+        trainer = MyTrainer(device=device, train_dataloader=train_dataloader, valid_dataloader=valid_dataloader, net=net, losses=losses, loss_weights=loss_weights, metrics=metrics, optimizer=optimizer, lr_scheduler=lr_scheduler, logger=logger, monitor=monitor, num_epochs=num_epochs)
 
         trainer.train()
 

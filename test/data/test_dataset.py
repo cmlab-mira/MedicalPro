@@ -5,13 +5,16 @@ from pathlib import Path
 
 from src.data.datasets.base_dataset import BaseDataset
 from src.data.dataloader import Dataloader
+from src.data.transforms import compose
 
 
 class MyDataset(BaseDataset):
-
-    def __init__(self, image, label, **kwargs):
+    """The derived class of BaseDataset.
+    """
+    def __init__(self, image, label, transforms, **kwargs):
         super().__init__(**kwargs)
-        self.image, self.label = image, label;
+        self.image, self.label = image, label
+        self.transforms = compose(transforms)
 
     def __getitem__(self, index):
         return {"input": self.image[index], "target": self.label[index]}
@@ -24,6 +27,7 @@ def test_base_dataset(config):
     """Test to create `baseDataset`.
     """
     cfg = config
+    cfg.dataset.pop('transforms')
     dataset = BaseDataset(**cfg.dataset)
 
 

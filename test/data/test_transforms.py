@@ -2,15 +2,15 @@ import torch
 import pytest
 import numpy as np
 
-from src.data.transformers import compose
-from src.data.transformers import ToTensor
-from src.data.transformers import Normalize
-from src.data.transformers import RandomCrop
-from src.data.transformers import Resize
-from src.data.transformers import RandomElasticDeformation
+from src.data.transforms import compose
+from src.data.transforms import ToTensor
+from src.data.transforms import Normalize
+from src.data.transforms import RandomCrop
+from src.data.transforms import Resize
+from src.data.transforms import RandomElasticDeformation
 
 
-def test_composed_transformer(config, dummy_input):
+def test_composed_transforms(config, dummy_input):
     """Test to compose multiple augmentations
     including RandomCrop, Normalize, ToTensor.
     """
@@ -123,8 +123,8 @@ def test_random_elastic_deformation(dummy_input):
     assert _image.dtype == image.dtype
     assert _label.shape == label.shape
     assert _label.dtype == label.dtype
-    
-    
+
+
 def test_to_tensor(dummy_input):
     """Test to convert the input numpy array to torch tensor.
     `dtypes` can be used to assign the output tensor types.

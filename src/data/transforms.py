@@ -8,12 +8,12 @@ from skimage.transform import resize
 
 
 def compose(transforms=None):
-    """Compose several transformers together.
+    """Compose several transforms together.
     Args:
-        transforms (Box): The preprocessing and augmentation techniques applied to the data (default: None).
+        transforms (Box): The preprocessing and augmentation techniques applied to the data (default: None, only contain the default transform ToTensor).
 
     Returns:
-        transforms (Compose): The list of BaseTransformer.
+        transforms (Compose): The list of BaseTransform.
     """
     if transforms is None:
         return Compose([ToTensor()])
@@ -21,19 +21,17 @@ def compose(transforms=None):
     _transforms = []
     for transform in transforms:
         if transform.do:
-            cls = getattr(importlib.import_module('src.data.transformers'), transform.name)
+            cls = getattr(importlib.import_module('src.data.transforms'), transform.name)
             kwargs = transform.get('kwargs')
             _transforms.append(cls(**kwargs) if kwargs else cls())
-
-    # Append the default transformer ToTensor.
     _transforms.append(ToTensor())
 
     transforms = Compose(_transforms)
     return transforms
 
 
-class BaseTransformer:
-    """The base class for all transformers.
+class BaseTransform:
+    """The base class for all transforms.
     """
     def __call__(self, *imgs, **kwargs):
         raise NotImplementedError
@@ -42,7 +40,7 @@ class BaseTransformer:
         return self.__class__.__name__
 
 
-class Compose(BaseTransformer):
+class Compose(BaseTransform):
     """Compose several transforms together.
     Args:
          transforms (Box): The preprocessing and augmentation techniques applied to the data.
@@ -75,7 +73,7 @@ class Compose(BaseTransformer):
         return format_string
 
 
-class ToTensor(BaseTransformer):
+class ToTensor(BaseTransform):
     """Convert a tuple of numpy.ndarray to a tuple of torch.Tensor.
     """
     def __call__(self, *imgs, dtypes=None, **kwargs):
@@ -101,7 +99,7 @@ class ToTensor(BaseTransformer):
         return imgs
 
 
-class Normalize(BaseTransformer):
+class Normalize(BaseTransform):
     """Normalize a tuple of images with the means and the standard deviations.
     Args:
         means (list, optional): A sequence of means for each channel (default: None).
@@ -172,7 +170,7 @@ class Normalize(BaseTransformer):
         return img
 
 
-class Resize(BaseTransformer):
+class Resize(BaseTransform):
     """Resize a tuple of images to the same size.
     Args:
         size (list): The desired output size of the resized images.
@@ -204,7 +202,7 @@ class Resize(BaseTransformer):
         return imgs
 
 
-class RandomCrop(BaseTransformer):
+class RandomCrop(BaseTransform):
     """Crop a tuple of images at the same random location.
     Args:
         size (list): The desired output size of the cropped images.
@@ -263,7 +261,7 @@ class RandomCrop(BaseTransformer):
             return h0, h0 + ht, w0, w0 + wt, d0, d0 + dt
 
 
-class RandomElasticDeformation(BaseTransformer):
+class RandomElasticDeformation(BaseTransform):
     """Do the random elastic deformation as used in U-Net and V-Net by using the bspline transform.
     Args:
         do_z_deformation (bool, optional): Whether to apply the deformation along the z dimension (default: False).

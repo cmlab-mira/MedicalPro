@@ -1,11 +1,11 @@
 dataset:
     data_root: root
     transforms:
-        - name: 'random_crop'
+        - name: 'RandomCrop'
           do: true
           kwargs:
               size: [256, 256]
-        - name: 'normalize'
+        - name: 'Normalize'
           do: true
 
 dataloader:

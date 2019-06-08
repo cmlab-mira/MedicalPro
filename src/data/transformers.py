@@ -21,8 +21,7 @@ def compose(transforms=None):
     _transforms = []
     for transform in transforms:
         if transform.do:
-            cls_name = ''.join([str_.capitalize() for str_ in transform.name.split('_')])
-            cls = getattr(importlib.import_module('src.data.transformers'), cls_name)
+            cls = getattr(importlib.import_module('src.data.transformers'), transform.name)
             kwargs = transform.get('kwargs')
             _transforms.append(cls(**kwargs) if kwargs else cls())
 

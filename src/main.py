@@ -30,11 +30,11 @@ def main(args):
         raise ValueError("The cuda is not available. Please set the device in the trainer section to 'cpu'.")
     device = torch.device(config.trainer.device)
 
-    logging.info('Create the train and validation datasets.')
+    logging.info('Create the training and validation datasets.')
     train_dataset = _get_instance(src.data.datasets, config.dataset, 'train')
     valid_dataset = _get_instance(src.data.datasets, config.dataset, 'valid')
 
-    logging.info('Create the train and validation dataloaders.')
+    logging.info('Create the training and validation dataloaders.')
     cls = getattr(src.data.datasets, config.dataset.name)
     config.dataloader.kwargs.update(collate_fn=getattr(cls, 'collate_fn', None))
     train_dataloader = _get_instance(src.data.dataloader, config.dataloader, train_dataset)

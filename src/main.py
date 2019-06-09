@@ -94,7 +94,7 @@ def main(args):
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="The script to train.")
-    parser.add_argument('--config_file', '-c', type=Path, help='The path of the config file.')
+    parser.add_argument('config_file', type=Path, help='The path of the config file.')
     args = parser.parse_args()
     return args
 

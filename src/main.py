@@ -36,8 +36,10 @@ def main(args):
 
     logging.info('Create the training and validation dataloaders.')
     cls = getattr(src.data.datasets, config.dataset.name)
-    config.dataloader.kwargs.update(collate_fn=getattr(cls, 'collate_fn', None))
+    train_batch_size, valid_batch_size = config.dataloader.kwargs.pop('train_batch_size'), config.dataloader.kwargs.pop('valid_batch_size')
+    config.dataloader.kwargs.update(collate_fn=getattr(cls, 'collate_fn', None), batch_size=train_batch_size)
     train_dataloader = _get_instance(src.data.dataloader, config.dataloader, train_dataset)
+    config.dataloader.kwargs.update(batch_size=valid_batch_size)
     valid_dataloader = _get_instance(src.data.dataloader, config.dataloader, valid_dataset)
 
     logging.info('Create the network architecture.')

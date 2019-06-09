@@ -18,7 +18,8 @@ datasets:
 dataloader:
     name: 'Dataloader'
     kwargs:
-        batch_size: 32
+        train_batch_size: 32
+        valid_batch_size: 1
         shuffle: true
         num_workers: 8
 

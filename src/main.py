@@ -18,7 +18,7 @@ def main(args):
     if not Path(config.main.saved_dir).is_dir():
         Path(config.main.saved_dir).mkdir(parents=True)
 
-    logging.info(f'Copy the config to "{config.main.saved_dir}".')
+    logging.info(f'Save the config to "{config.main.saved_dir}".')
     with open(Path(config.main.saved_dir) / 'config.yaml', 'w+') as f:
         yaml.dump(config, f, default_flow_style=False)
 
@@ -94,8 +94,13 @@ def main(args):
     config.trainer.kwargs.update(kwargs)
     trainer = _get_instance(src.runner.trainers, config.trainer)
 
-    # Start training.
-    logging.info('Start training.')
+    loaded_path = config.main.get('loaded_path')
+    if loaded_path:
+        logging.info(f'Load previous checkpoint from "{loaded_path}".')
+        trainer.load(Path(loaded_path))
+        logging.info('Resume training.')
+    else:
+        logging.info('Start training.')
     trainer.train()
     logging.info('End training.')
 

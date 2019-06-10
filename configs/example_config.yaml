@@ -1,6 +1,7 @@
 main:
-    saved_dir: 'path/to/experimental/results'
     random_seed: 0
+    saved_dir: 'path/to/experimental/results'
+    loaded_path: 'path/to/checkpoint.pkl' # The loaded_path is not necessary.
 
 dataset:
     name: 'MyDataset'

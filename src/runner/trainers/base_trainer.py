@@ -41,14 +41,16 @@ class BaseTrainer:
         self.monitor = monitor
         self.num_epochs = num_epochs
         self.epoch = 1
+        self.np_random_seeds = None
 
     def train(self):
         """The training process.
         """
-        random_seeds = random.sample(range(10000000), k=self.num_epochs)
+        if self.np_random_seeds is None:
+            self.np_random_seeds = random.sample(range(10000000), k=self.num_epochs)
         while self.epoch <= self.num_epochs:
             # Reset the numpy random seed.
-            np.random.seed(random_seeds[self.epoch - 1])
+            np.random.seed(np_random_seeds[self.epoch - 1])
 
             logging.info(f'\nEpoch {self.epoch}.')
             train_log, train_batch, train_output = self._run_epoch('training')
@@ -173,11 +175,13 @@ class BaseTrainer:
             path (Path): The path to save the model checkpoint.
         """
         torch.save({
-            'epoch': self.epoch,
             'net': self.net.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None,
-            'monitor': self.monitor
+            'monitor': self.monitor,
+            'epoch': self.epoch,
+            'random_state': random.getstate(),
+            'np_random_seeds': self.np_random_seeds
         }, path)
 
     def load(self, path):
@@ -186,9 +190,11 @@ class BaseTrainer:
             path (Path): The path to load the model checkpoint.
         """
         checkpoint = torch.load(path, map_location=self.device)
-        self.epoch = checkpoint['epoch'] + 1
         self.net.load_state_dict(checkpoint['net'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
         if checkpoint['lr_scheduler']:
             self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         self.monitor = checkpoint['monitor']
+        self.epoch = checkpoint['epoch'] + 1
+        random.setstate(checkpoint['random_state'])
+        self.np_random_seeds = checkpoint['np_random_seeds']

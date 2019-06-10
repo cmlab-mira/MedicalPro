@@ -10,9 +10,12 @@ class BaseLogger:
         dummy_input (torch.Tensor): The dummy input for plotting the network architecture.
     """
     def __init__(self, log_dir, net, dummy_input):
-        # Plot the network architecture.
+        '''
+        # TODO: Plot the network architecture.
+        # There are some errors: ONNX runtime errors.
         with SummaryWriter(log_dir) as w:
             w.add_graph(net, dummy_input)
+        '''
 
         self.writer = SummaryWriter(log_dir)
 

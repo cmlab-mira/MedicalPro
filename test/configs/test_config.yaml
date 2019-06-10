@@ -2,11 +2,9 @@ dataset:
     data_root: root
     transforms:
         - name: 'RandomCrop'
-          do: true
           kwargs:
               size: [256, 256]
         - name: 'Normalize'
-          do: true
 
 dataloader:
     batch_size: 128

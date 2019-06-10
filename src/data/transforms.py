@@ -1,11 +1,11 @@
 import torch
 import random
-import importlib
 import functools
 import numpy as np
 import SimpleITK as sitk
 from skimage.transform import resize
 
+import src.data.transforms
 
 def compose(transforms=None):
     """Compose several transforms together.
@@ -20,10 +20,9 @@ def compose(transforms=None):
 
     _transforms = []
     for transform in transforms:
-        if transform.do:
-            cls = getattr(importlib.import_module('src.data.transforms'), transform.name)
-            kwargs = transform.get('kwargs')
-            _transforms.append(cls(**kwargs) if kwargs else cls())
+        cls = getattr(src.data.transforms, transform.name)
+        kwargs = transform.get('kwargs')
+        _transforms.append(cls(**kwargs) if kwargs else cls())
     _transforms.append(ToTensor())
 
     transforms = Compose(_transforms)

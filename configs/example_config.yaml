@@ -8,12 +8,10 @@ dataset:
         data_root: 'path/to/data'
         transforms:
             - name: 'MyTransform1'
-              do: true
               kwargs:
                   kwarg1: value1
                   kwarg2: value2
             - name: 'MyTransform2'
-              do: false
 
 dataloader:
     name: 'Dataloader'
@@ -40,6 +38,9 @@ losses:
 
 metrics:
     - name: 'MyMetric'
+      kwargs:
+          kwarg1: value1
+          kwarg2: value2
 
 optimizer:
     name: 'Adam'

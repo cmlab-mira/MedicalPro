@@ -13,9 +13,13 @@ import src
 
 
 def main(args):
-    logging.info(f'Load the config from {args.config_path} and save it to {config.main.saved_dir}.')
+    logging.info(f'Load the config from "{args.config_path}".')
     config = Box.from_yaml(filename=args.config_path)
-    with open(Path(config.main.saved_dir) / 'config.yaml') as f:
+    if not Path(config.main.saved_dir).is_dir():
+        Path(config.main.saved_dir).mkdir(parents=True)
+
+    logging.info(f'Copy the config to "{config.main.saved_dir}".')
+    with open(Path(config.main.saved_dir) / 'config.yaml', 'w+') as f:
         yaml.dump(config, f, default_flow_style=False)
 
     # Make the experiment results deterministic.
@@ -26,13 +30,15 @@ def main(args):
     torch.backends.cudnn.benchmark = False
 
     logging.info('Create the device.')
-    if 'cuda' in config.trainer.device and not torch.cuda.is_available():
+    if 'cuda' in config.trainer.kwargs.device and not torch.cuda.is_available():
         raise ValueError("The cuda is not available. Please set the device in the trainer section to 'cpu'.")
-    device = torch.device(config.trainer.device)
+    device = torch.device(config.trainer.kwargs.device)
 
     logging.info('Create the training and validation datasets.')
-    train_dataset = _get_instance(src.data.datasets, config.dataset, 'train')
-    valid_dataset = _get_instance(src.data.datasets, config.dataset, 'valid')
+    config.dataset.kwargs.update(type='train')
+    train_dataset = _get_instance(src.data.datasets, config.dataset)
+    config.dataset.kwargs.update(type='valid')
+    valid_dataset = _get_instance(src.data.datasets, config.dataset)
 
     logging.info('Create the training and validation dataloaders.')
     cls = getattr(src.data.datasets, config.dataset.name)
@@ -66,7 +72,7 @@ def main(args):
     lr_scheduler = _get_instance(torch.optim.lr_scheduler, config.lr_scheduler, optimizer) if config.get('lr_scheduler') else None
 
     logging.info('Create the logger.')
-    config.logger.kwargs.update(log_dir=config.main.saved_dir + '/log', net=net)
+    config.logger.kwargs.update(log_dir=config.main.saved_dir + '/log', net=net, dummy_input=torch.randn(tuple(config.logger.kwargs.dummy_input)))
     logger = _get_instance(src.callbacks.loggers, config.logger)
 
     logging.info('Create the monitor.')
@@ -96,7 +102,7 @@ def main(args):
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="The script to train.")
-    parser.add_argument('config_file', type=Path, help='The path of the config file.')
+    parser.add_argument('config_path', type=Path, help='The path of the config file.')
     args = parser.parse_args()
     return args
 
@@ -116,9 +122,9 @@ def _get_instance(module, config, *args):
 
 
 if __name__ == "__main__":
-    with ipdb.launch_ipdb_on_exception():
-        sys.breakpointhook = ipdb.set_trace
-        logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s',
-                            level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
-        args = _parse_args()
-        main(args)
+    #with ipdb.launch_ipdb_on_exception():
+    #    sys.breakpointhook = ipdb.set_trace
+    logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s',
+                        level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
+    args = _parse_args()
+    main(args)

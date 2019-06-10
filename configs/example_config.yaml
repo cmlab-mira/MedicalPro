@@ -2,7 +2,7 @@ main:
     saved_dir: 'path/to/experimental/results'
     random_seed: 0
 
-datasets:
+dataset:
     name: 'MyDataset'
     kwargs:
         data_root: 'path/to/data'
@@ -23,7 +23,7 @@ dataloader:
         shuffle: true
         num_workers: 8
 
-nets:
+net:
     name: 'MyNet'
     kwargs:
         kwarg1: value1

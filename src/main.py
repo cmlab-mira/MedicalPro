@@ -1,6 +1,7 @@
 import argparse
 import logging
 import ipdb
+import os
 import sys
 import torch
 import random
@@ -72,11 +73,11 @@ def main(args):
     lr_scheduler = _get_instance(torch.optim.lr_scheduler, config.lr_scheduler, optimizer) if config.get('lr_scheduler') else None
 
     logging.info('Create the logger.')
-    config.logger.kwargs.update(log_dir=config.main.saved_dir + '/log', net=net, dummy_input=torch.randn(tuple(config.logger.kwargs.dummy_input)))
+    config.logger.kwargs.update(log_dir=Path(config.main.saved_dir) / 'log', net=net, dummy_input=torch.randn(tuple(config.logger.kwargs.dummy_input)))
     logger = _get_instance(src.callbacks.loggers, config.logger)
 
     logging.info('Create the monitor.')
-    config.monitor.kwargs.update(root=config.main.saved_dir + '/checkpoints')
+    config.monitor.kwargs.update(root=Path(config.main.saved_dir) / 'checkpoints')
     monitor = _get_instance(src.callbacks.monitor, config.monitor)
 
     logging.info('Create the trainer.')

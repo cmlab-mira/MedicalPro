@@ -20,6 +20,10 @@ class Monitor:
         self.best = -math.inf if self.mode == 'max' else math.inf
         self.not_improved_count = 0
 
+        # Create the checkpoints folder
+        if not self.root.is_dir():
+            self.root.mkdir(parents=True)
+
     def is_saved(self, epoch):
         """Whether to save the model checkpoint.
         Args:

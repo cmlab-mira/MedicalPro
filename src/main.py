@@ -16,11 +16,12 @@ import src
 def main(args):
     logging.info(f'Load the config from "{args.config_path}".')
     config = Box.from_yaml(filename=args.config_path)
-    if not Path(config.main.saved_dir).is_dir():
-        Path(config.main.saved_dir).mkdir(parents=True)
+    saved_dir = Path(config.main.saved_dir)
+    if not saved_dir.is_dir():
+        saved_dir.mkdir(parents=True)
 
     logging.info(f'Save the config to "{config.main.saved_dir}".')
-    with open(Path(config.main.saved_dir) / 'config.yaml', 'w+') as f:
+    with open(saved_dir / 'config.yaml', 'w+') as f:
         yaml.dump(config.to_dict(), f, default_flow_style=False)
 
     # Make the experiment results deterministic.
@@ -36,9 +37,10 @@ def main(args):
     device = torch.device(config.trainer.kwargs.device)
 
     logging.info('Create the training and validation datasets.')
-    config.dataset.kwargs.update(type='train')
+    data_root = Path(config.dataset.kwargs.data_root)
+    config.dataset.kwargs.update(type='train', data_root=data_root)
     train_dataset = _get_instance(src.data.datasets, config.dataset)
-    config.dataset.kwargs.update(type='valid')
+    config.dataset.kwargs.update(type='valid', data_root=data_root)
     valid_dataset = _get_instance(src.data.datasets, config.dataset)
 
     logging.info('Create the training and validation dataloaders.')
@@ -73,11 +75,11 @@ def main(args):
     lr_scheduler = _get_instance(torch.optim.lr_scheduler, config.lr_scheduler, optimizer) if config.get('lr_scheduler') else None
 
     logging.info('Create the logger.')
-    config.logger.kwargs.update(log_dir=Path(config.main.saved_dir) / 'log', net=net, dummy_input=torch.randn(tuple(config.logger.kwargs.dummy_input)))
+    config.logger.kwargs.update(log_dir=saved_dir / 'log', net=net, dummy_input=torch.randn(tuple(config.logger.kwargs.dummy_input)))
     logger = _get_instance(src.callbacks.loggers, config.logger)
 
     logging.info('Create the monitor.')
-    config.monitor.kwargs.update(root=Path(config.main.saved_dir) / 'checkpoints')
+    config.monitor.kwargs.update(root=saved_dir / 'checkpoints')
     monitor = _get_instance(src.callbacks.monitor, config.monitor)
 
     logging.info('Create the trainer.')

@@ -1,18 +1,17 @@
 import math
-from pathlib import Path
 
 
 class Monitor:
     """The class to monitor the training process and save the model checkpoints.
     Args:
-        root (str): The root directory of the saved model checkpoints.
+        root (Path): The root directory of the saved model checkpoints.
         mode (str): The mode of the monitor ('max' or 'min').
         target (str): The target of the monitor ('Loss', 'MyLoss' or 'MyMetric').
         saved_freq (int): The saved frequency.
         early_stop (int): The number of epochs to early stop the training if monitor target is not improved (default: 0, do not early stop the training).
     """
     def __init__(self, root, mode, target, saved_freq, early_stop=0):
-        self.root = Path(root)
+        self.root = root
         self.mode = mode
         self.target = target
         self.saved_freq = saved_freq

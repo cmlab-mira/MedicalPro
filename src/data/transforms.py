@@ -7,6 +7,7 @@ from skimage.transform import resize
 
 import src.data.transforms
 
+
 def compose(transforms=None):
     """Compose several transforms together.
     Args:

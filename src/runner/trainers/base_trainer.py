@@ -50,7 +50,7 @@ class BaseTrainer:
             self.np_random_seeds = random.sample(range(10000000), k=self.num_epochs)
         while self.epoch <= self.num_epochs:
             # Reset the numpy random seed.
-            np.random.seed(np_random_seeds[self.epoch - 1])
+            np.random.seed(self.np_random_seeds[self.epoch - 1])
 
             logging.info(f'\nEpoch {self.epoch}.')
             train_log, train_batch, train_output = self._run_epoch('training')

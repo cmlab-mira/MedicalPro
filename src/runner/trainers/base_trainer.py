@@ -52,7 +52,8 @@ class BaseTrainer:
             # Reset the numpy random seed.
             np.random.seed(self.np_random_seeds[self.epoch - 1])
 
-            logging.info(f'\nEpoch {self.epoch}.')
+            print()
+            logging.info(f'Epoch {self.epoch}.')
             train_log, train_batch, train_output = self._run_epoch('training')
             logging.info(f'Train log: {train_log}.')
             valid_log, valid_batch, valid_output = self._run_epoch('validation')

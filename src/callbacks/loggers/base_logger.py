@@ -16,8 +16,7 @@ class BaseLogger:
         with SummaryWriter(log_dir) as w:
             w.add_graph(net, dummy_input)
         '''
-
-        self.writer = SummaryWriter(log_dir)
+        self.log_dir = log_dir
 
     def write(self, epoch, train_log, train_batch, train_output, valid_log, valid_batch, valid_output):
         """Plot the network architecture and the visualization results.
@@ -33,11 +32,6 @@ class BaseLogger:
         self._add_scalars(epoch, train_log, valid_log)
         self._add_images(epoch, train_batch, train_output, valid_batch, valid_output)
 
-    def close(self):
-        """Close the writer.
-        """
-        self.writer.close()
-
     def _add_scalars(self, epoch, train_log, valid_log):
         """Plot the training curves.
         Args:
@@ -45,8 +39,9 @@ class BaseLogger:
             train_log (dict): The training log information.
             valid_log (dict): The validation log information.
         """
-        for key in train_log:
-            self.writer.add_scalars(key, {'train': train_log[key], 'valid': valid_log[key]}, epoch)
+        with SummaryWriter(self.log_dir) as writer:
+            for key in train_log:
+                writer.add_scalars(key, {'train': train_log[key], 'valid': valid_log[key]}, epoch)
 
     def _add_images(self, epoch, train_batch, train_output, valid_batch, valid_output):
         """Plot the visualization results.

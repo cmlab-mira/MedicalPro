@@ -63,16 +63,16 @@ class BaseTrainer:
                               valid_log, valid_batch, valid_output)
 
             # Save the regular checkpoint.
-            if self.monitor.is_saved(self.epoch):
-                path = self.monitor.root / f'model_{self.epoch}'
-                logging.info(f'Save the checkpoint to {path}.')
-                self.save(path)
+            saved_path = self.monitor.is_saved(self.epoch)
+            if saved_path:
+                logging.info(f'Save the checkpoint to {saved_path}.')
+                self.save(saved_path)
 
             # Save the best checkpoint.
-            if self.monitor.is_best(valid_log):
-                path = self.monitor.root / 'model_best'
-                logging.info(f'Save the best checkpoint to {path} ({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
-                self.save(path)
+            saved_path = self.monitor.is_best(valid_log)
+            if saved_path:
+                logging.info(f'Save the best checkpoint to {saved_path} ({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                self.save(saved_path)
             else:
                 logging.info(f'The best checkpoint is remained (at epoch {self.epoch - self.monitor.not_improved_count}, {self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
 
@@ -82,9 +82,6 @@ class BaseTrainer:
                 break
 
             self.epoch +=1
-
-        # Close the SummeryWriter of the logger
-        self.logger.close()
 
     def _run_epoch(self, mode):
         """Run an epoch for training.

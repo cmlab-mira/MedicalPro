@@ -20,7 +20,7 @@ def main(args):
 
     logging.info(f'Save the config to "{config.main.saved_dir}".')
     with open(Path(config.main.saved_dir) / 'config.yaml', 'w+') as f:
-        yaml.dump(config, f, default_flow_style=False)
+        yaml.dump(config.to_dict(), f, default_flow_style=False)
 
     # Make the experiment results deterministic.
     random.seed(config.main.random_seed)

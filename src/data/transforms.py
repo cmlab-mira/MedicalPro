@@ -24,7 +24,6 @@ def compose(transforms=None):
         cls = getattr(src.data.transforms, transform.name)
         kwargs = transform.get('kwargs')
         _transforms.append(cls(**kwargs) if kwargs else cls())
-    _transforms.append(ToTensor())
 
     transforms = Compose(_transforms)
     return transforms

@@ -3,8 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import datasets, transforms
 import random
+from pathlib import Path
 
 from src.model.nets.base_net import BaseNet
 from src.runner.trainers.base_trainer import BaseTrainer
@@ -47,7 +49,8 @@ class MyLogger(BaseLogger):
 
     def _add_images(self, epoch, train_batch, train_output, valid_batch, valid_output):
         data, target = valid_batch
-        self.writer.add_images('data', data, epoch)
+        with SummaryWriter(self.log_dir) as writer:
+            writer.add_images('data', data, epoch)
 
 
 class MyTrainer(BaseTrainer):
@@ -87,8 +90,8 @@ def test_trainer(tmpdir):
         optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.5)
         lr_scheduler = None
 
-        logger = MyLogger(log_dir='./models', net=net, dummy_input=torch.randn(1, 1, 28, 28))
-        monitor = Monitor(root='./models', mode='min', target='Loss', saved_freq=5, early_stop=0)
+        logger = MyLogger(log_dir=Path('./models'), net=net, dummy_input=torch.randn(1, 1, 28, 28))
+        monitor = Monitor(root=Path('./models'), mode='min', target='Loss', saved_freq=5, early_stop=0)
         num_epochs = 10
 
         trainer = MyTrainer(device=device, train_dataloader=train_dataloader, valid_dataloader=valid_dataloader, net=net, losses=losses, loss_weights=loss_weights, metrics=metrics, optimizer=optimizer, lr_scheduler=lr_scheduler, logger=logger, monitor=monitor, num_epochs=num_epochs)

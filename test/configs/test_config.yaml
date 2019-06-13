@@ -5,6 +5,7 @@ dataset:
           kwargs:
               size: [256, 256]
         - name: 'Normalize'
+        - name: 'ToTensor'
 
 dataloader:
     batch_size: 128

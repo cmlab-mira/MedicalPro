@@ -57,9 +57,37 @@ class MyTrainer(BaseTrainer):
         super().__init__(**kwargs)
 
     def _set_inputs_targets(self, batch):
-        data, target = batch
-        return data, target
+        """Specify the data inputs and targets.
+        Args:
+            batch (dict or tuple): A batch of data.
+        Returns:
+            inputs (torch.Tensor): The data input.
+            targets (torch.Tensor): The data target.
+        """
+        return batch
 
+    def _compute_losses(self, output, target):
+        """Compute the losses.
+        Args:
+            output (torch.Tensor): The model output.
+            target (torch.Tensor): The data target.
+
+        Returns:
+            losses (sequence of torch.Tensor): The computed losses.
+        """
+        losses = [loss(output, target) for loss in self.losses]
+        return losses
+
+    def _compute_metrics(self, output, target):
+        """Compute the metrics.
+        Args:
+             output (torch.Tensor): The model output.
+             target (torch.Tensor): The data target.
+        Returns:
+            metrics (sequence of torch.Tensor): The computed metrics.
+        """
+        metrics = [metric(output, target) for metric in self.metrics]
+        return metrics
 
 def test_trainer(tmpdir):
     nets = []

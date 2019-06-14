@@ -92,7 +92,7 @@ class BaseTrainer:
         Returns:
             log (dict): The log information.
             batch (dict or tuple): The last batch of the data.
-            outputs (torch.Tensor or tuple of torch.Tensor): The corresponding outputs.
+            outputs (torch.Tensor or sequence of torch.Tensor): The corresponding model outputs.
         """
         if mode == 'training':
             self.net.train()
@@ -114,7 +114,7 @@ class BaseTrainer:
             inputs, targets = self._set_inputs_targets(batch)
             if mode == 'training':
                 outputs = self.net(inputs)
-                losses = [loss(outputs, targets) for loss in self.losses]
+                losses = self._compute_losses(outputs, targets)
                 loss = (torch.stack(losses) * self.loss_weights).sum()
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -122,9 +122,9 @@ class BaseTrainer:
             else:
                 with torch.no_grad():
                     outputs = self.net(inputs)
-                    losses = [loss(outputs, targets) for loss in self.losses]
+                    losses = self._compute_losses(outputs, targets)
                     loss = (torch.stack(losses) * self.loss_weights).sum()
-            scores =  [metric(outputs, targets) for metric in self.metrics]
+            metrics =  self._compute_metrics(outputs, targets)
 
             if self.lr_scheduler is None:
                 pass
@@ -134,7 +134,7 @@ class BaseTrainer:
                 self.lr_scheduler.step()
 
             batch_size = self.train_dataloader.batch_size if mode == 'training' else self.valid_dataloader.batch_size
-            self._update_log(log, batch_size, loss, losses, scores)
+            self._update_log(log, batch_size, loss, losses, metrics)
             count += batch_size
             trange.set_postfix(**dict((key, f'{value / count: .3f}') for key, value in log.items()))
 
@@ -148,8 +148,30 @@ class BaseTrainer:
             batch (dict or tuple): A batch of data.
 
         Returns:
-            inputs (torch.Tensor or tuple of torch.Tensor): The inputs.
-            targets (torch.Tensor or tuple of torch.Tensor): The targets.
+            inputs (torch.Tensor or sequence of torch.Tensor): The data inputs.
+            targets (torch.Tensor or sequence of torch.Tensor): The data targets.
+        """
+        raise NotImplementedError
+
+    def _compute_losses(self, outputs, targets):
+        """Compute the losses.
+        Args:
+            outputs (torch.Tensor or sequence of torch.Tensor): The model outputs.
+            targets (torch.Tensor or sequence of torch.Tensor): The data targets.
+
+        Returns:
+            losses (sequence of torch.Tensor): The computed losses.
+        """
+        raise NotImplementedError
+
+    def _compute_metrics(self, outputs, targets):
+        """Compute the metrics.
+        Args:
+            outputs (torch.Tensor or sequence of torch.Tensor): The model outputs.
+            targets (torch.Tensor or sequence of torch.Tensor): The data targets.
+
+        Returns:
+            metrics (sequence of torch.Tensor): The computed metrics.
         """
         raise NotImplementedError
 
@@ -166,20 +188,20 @@ class BaseTrainer:
             log[metric.__class__.__name__] = 0
         return log
 
-    def _update_log(self, log, batch_size, loss, losses, scores):
+    def _update_log(self, log, batch_size, loss, losses, metrics):
         """Update the log.
         Args:
             log (dict): The log to be updated.
             batch_size (int): The batch size.
             loss (torch.Tensor): The weighted sum of the computed losses.
-            losses (list of torch.Tensor): The computed losses.
-            scores (list of torch.Tensor): The computed scores.
+            losses (sequence of torch.Tensor): The computed losses.
+            metrics (sequence of torch.Tensor): The computed metrics.
         """
         log['Loss'] += loss.item() * batch_size
         for loss, _loss in zip(self.losses, losses):
             log[loss.__class__.__name__] += _loss.item() * batch_size
-        for metric, score in zip(self.metrics, scores):
-            log[metric.__class__.__name__] += score.item() * batch_size
+        for metric, _metric in zip(self.metrics, metrics):
+            log[metric.__class__.__name__] += _metric.item() * batch_size
 
     def save(self, path):
         """Save the model checkpoint.

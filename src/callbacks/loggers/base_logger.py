@@ -24,10 +24,10 @@ class BaseLogger:
             epoch (int): The number of trained epochs.
             train_log (dict): The training log information.
             train_batch (dict): The training batch.
-            train_outputs (torch.Tensor): The training outputs.
+            train_outputs (torch.Tensor or sequence of torch.Tensor): The training outputs.
             valid_log (dict): The validation log information.
             valid_batch (dict): The validation batch.
-            valid_outputs (torch.Tensor): The validation outputs.
+            valid_outputs (torch.Tensor or sequence of torch.Tensor): The validation outputs.
         """
         self._add_scalars(epoch, train_log, valid_log)
         self._add_images(epoch, train_batch, train_outputs, valid_batch, valid_outputs)
@@ -48,8 +48,8 @@ class BaseLogger:
         Args:
             epoch (int): The number of trained epochs.
             train_batch (dict): The training batch.
-            train_outputs (torch.Tensor): The training outputs.
+            train_outputs (torch.Tensor or sequence of torch.Tensor): The training outputs.
             valid_batch (dict): The validation batch.
-            valid_outputs (torch.Tensor): The validation outputs.
+            valid_outputs (torch.Tensor or sequence of torch.Tensor): The validation outputs.
         """
         raise NotImplementedError

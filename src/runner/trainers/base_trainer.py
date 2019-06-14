@@ -142,7 +142,7 @@ class BaseTrainer:
             log[key] /= count
         return log, batch, outputs
 
-    def _set_inputs_targets(batch):
+    def _set_inputs_targets(self, batch):
         """Specify the data inputs and targets.
         Args:
             batch (dict or tuple): A batch of data.

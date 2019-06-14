@@ -18,19 +18,19 @@ class BaseLogger:
         '''
         self.log_dir = log_dir
 
-    def write(self, epoch, train_log, train_batch, train_output, valid_log, valid_batch, valid_output):
+    def write(self, epoch, train_log, train_batch, train_outputs, valid_log, valid_batch, valid_outputs):
         """Plot the network architecture and the visualization results.
         Args:
             epoch (int): The number of trained epochs.
             train_log (dict): The training log information.
             train_batch (dict): The training batch.
-            train_output (torch.Tensor): The training output.
+            train_outputs (torch.Tensor): The training outputs.
             valid_log (dict): The validation log information.
             valid_batch (dict): The validation batch.
-            valid_output (torch.Tensor): The validation output.
+            valid_outputs (torch.Tensor): The validation outputs.
         """
         self._add_scalars(epoch, train_log, valid_log)
-        self._add_images(epoch, train_batch, train_output, valid_batch, valid_output)
+        self._add_images(epoch, train_batch, train_outputs, valid_batch, valid_outputs)
 
     def _add_scalars(self, epoch, train_log, valid_log):
         """Plot the training curves.
@@ -43,13 +43,13 @@ class BaseLogger:
             for key in train_log:
                 writer.add_scalars(key, {'train': train_log[key], 'valid': valid_log[key]}, epoch)
 
-    def _add_images(self, epoch, train_batch, train_output, valid_batch, valid_output):
+    def _add_images(self, epoch, train_batch, train_outputs, valid_batch, valid_outputs):
         """Plot the visualization results.
         Args:
             epoch (int): The number of trained epochs.
             train_batch (dict): The training batch.
-            train_output (torch.Tensor): The training output.
+            train_outputs (torch.Tensor): The training outputs.
             valid_batch (dict): The validation batch.
-            valid_output (torch.Tensor): The validation output.
+            valid_outputs (torch.Tensor): The validation outputs.
         """
         raise NotImplementedError

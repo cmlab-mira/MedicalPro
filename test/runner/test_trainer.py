@@ -37,8 +37,7 @@ class MyMetric(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, output, batch):
-        _, target = batch
+    def forward(self, output, target):
         pred = output.argmax(dim=1, keepdim=True)
         return pred.eq(target.view_as(pred)).sum() / output.size(0)
 
@@ -57,11 +56,9 @@ class MyTrainer(BaseTrainer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def _run_iter(self, batch):
+    def _set_inputs_targets(self, batch):
         data, target = batch
-        output = self.net(data)
-        losses = tuple(loss(output, target) for loss in self.losses)
-        return output, losses
+        return data, target
 
 
 def test_trainer(tmpdir):

@@ -136,7 +136,7 @@ class BaseTrainer:
             batch_size = self.train_dataloader.batch_size if mode == 'training' else self.valid_dataloader.batch_size
             self._update_log(log, batch_size, loss, losses, scores)
             count += batch_size
-            trange.set_postfix(**dict((key, value / count) for key, value in log.items()))
+            trange.set_postfix(**dict((key, f'{value / count: .3f}') for key, value in log.items()))
 
         for key in log:
             log[key] /= count

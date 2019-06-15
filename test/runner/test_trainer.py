@@ -56,7 +56,7 @@ class MyTrainer(BaseTrainer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def _set_inputs_targets(self, batch):
+    def _get_inputs_targets(self, batch):
         """Specify the data inputs and targets.
         Args:
             batch (dict or tuple): A batch of data.

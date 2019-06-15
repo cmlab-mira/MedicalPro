@@ -60,6 +60,7 @@ class MyTrainer(BaseTrainer):
         """Specify the data inputs and targets.
         Args:
             batch (dict or tuple): A batch of data.
+
         Returns:
             inputs (torch.Tensor): The data input.
             targets (torch.Tensor): The data target.
@@ -83,6 +84,7 @@ class MyTrainer(BaseTrainer):
         Args:
              output (torch.Tensor): The model output.
              target (torch.Tensor): The data target.
+
         Returns:
             metrics (sequence of torch.Tensor): The computed metrics.
         """

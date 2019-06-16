@@ -52,12 +52,21 @@ class BaseTrainer:
             # Reset the numpy random seed.
             np.random.seed(self.np_random_seeds[self.epoch - 1])
 
+            # Do training and validation.
             print()
             logging.info(f'Epoch {self.epoch}.')
             train_log, train_batch, train_outputs = self._run_epoch('training')
             logging.info(f'Train log: {train_log}.')
             valid_log, valid_batch, valid_outputs = self._run_epoch('validation')
             logging.info(f'Valid log: {valid_log}.')
+
+            # Adjust the learning rate.
+            if self.lr_scheduler is None:
+                pass
+            elif isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau) and mode == 'validation':
+                self.lr_scheduler.step(valid_log['Loss'])
+            else:
+                self.lr_scheduler.step()
 
             # Record the log information and visualization.
             self.logger.write(self.epoch, train_log, train_batch, train_outputs,
@@ -125,13 +134,6 @@ class BaseTrainer:
                     losses = self._compute_losses(outputs, targets)
                     loss = (torch.stack(losses) * self.loss_weights).sum()
             metrics =  self._compute_metrics(outputs, targets)
-
-            if self.lr_scheduler is None:
-                pass
-            elif isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau) and mode == 'validation':
-                self.lr_scheduler.step(loss)
-            else:
-                self.lr_scheduler.step()
 
             batch_size = self.train_dataloader.batch_size if mode == 'training' else self.valid_dataloader.batch_size
             self._update_log(log, batch_size, loss, losses, metrics)

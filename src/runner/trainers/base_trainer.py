@@ -111,7 +111,7 @@ class BaseTrainer:
             else:
                 batch = tuple(data.to(self.device) for data in batch)
 
-            inputs, targets = self._set_inputs_targets(batch)
+            inputs, targets = self._get_inputs_targets(batch)
             if mode == 'training':
                 outputs = self.net(inputs)
                 losses = self._compute_losses(outputs, targets)

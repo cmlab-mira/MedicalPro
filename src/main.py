@@ -37,10 +37,10 @@ def main(args):
     device = torch.device(config.trainer.kwargs.device)
 
     logging.info('Create the training and validation datasets.')
-    data_root = Path(config.dataset.kwargs.data_root)
-    config.dataset.kwargs.update(type='train', data_root=data_root)
+    data_dir = Path(config.dataset.kwargs.data_dir)
+    config.dataset.kwargs.update(data_dir=data_dir, type='train')
     train_dataset = _get_instance(src.data.datasets, config.dataset)
-    config.dataset.kwargs.update(type='valid', data_root=data_root)
+    config.dataset.kwargs.update(data_dir=data_dir, type='valid')
     valid_dataset = _get_instance(src.data.datasets, config.dataset)
 
     logging.info('Create the training and validation dataloaders.')
@@ -79,7 +79,7 @@ def main(args):
     logger = _get_instance(src.callbacks.loggers, config.logger)
 
     logging.info('Create the monitor.')
-    config.monitor.kwargs.update(root=saved_dir / 'checkpoints')
+    config.monitor.kwargs.update(checkpoints_dir=saved_dir / 'checkpoints')
     monitor = _get_instance(src.callbacks.monitor, config.monitor)
 
     logging.info('Create the trainer.')

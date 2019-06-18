@@ -93,7 +93,10 @@ class MyTrainer(BaseTrainer):
 
 def test_trainer(tmpdir):
     nets = []
-    root = tmpdir.mkdir('./data')
+    root = Path('./models/test/data')
+    if not root.is_dir():
+        root.mkdir(parents=True)
+
     for i in range(2):
         random.seed('MNIST')
         torch.manual_seed(random.getstate()[1][1])
@@ -107,8 +110,8 @@ def test_trainer(tmpdir):
         kwargs = {'batch_size': 64, 'shuffle': True, 'num_workers': 1}
         transform = transforms.Compose([transforms.ToTensor(),
                                         transforms.Normalize((0.1307,), (0.3081,))])
-        train_dataloader = DataLoader(datasets.MNIST(root=root, train=True, download=True, transform=transform), **kwargs)
-        valid_dataloader = DataLoader(datasets.MNIST(root=root, train=False, download=True, transform=transform), **kwargs)
+        train_dataloader = DataLoader(datasets.MNIST(root=str(root), train=True, download=True, transform=transform), **kwargs)
+        valid_dataloader = DataLoader(datasets.MNIST(root=str(root), train=False, download=True, transform=transform), **kwargs)
 
         net = MyNet()
         losses = [nn.NLLLoss()]
@@ -117,8 +120,8 @@ def test_trainer(tmpdir):
         optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.5)
         lr_scheduler = None
 
-        logger = MyLogger(log_dir=Path('./models'), net=net, dummy_input=torch.randn(1, 1, 28, 28))
-        monitor = Monitor(root=Path('./models'), mode='min', target='Loss', saved_freq=5, early_stop=0)
+        logger = MyLogger(log_dir=Path('./models/test/log'), net=net, dummy_input=torch.randn(1, 1, 28, 28))
+        monitor = Monitor(checkpoints_dir=Path('./models/test/checkpoints'), mode='min', target='Loss', saved_freq=5, early_stop=0)
         num_epochs = 10
 
         trainer = MyTrainer(device=device, train_dataloader=train_dataloader, valid_dataloader=valid_dataloader, net=net, losses=losses, loss_weights=loss_weights, metrics=metrics, optimizer=optimizer, lr_scheduler=lr_scheduler, logger=logger, monitor=monitor, num_epochs=num_epochs)

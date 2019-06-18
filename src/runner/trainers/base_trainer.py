@@ -100,7 +100,7 @@ class BaseTrainer:
 
         Returns:
             log (dict): The log information.
-            batch (dict or tuple): The last batch of the data.
+            batch (dict or sequence): The last batch of the data.
             outputs (torch.Tensor or sequence of torch.Tensor): The corresponding model outputs.
         """
         if mode == 'training':
@@ -115,11 +115,7 @@ class BaseTrainer:
         log = self._init_log()
         count = 0
         for batch in trange:
-            if isinstance(batch, dict):
-                batch = dict((key, data.to(self.device)) for key, data in batch.items())
-            else:
-                batch = tuple(data.to(self.device) for data in batch)
-
+            batch = self._allocate_data(batch)
             inputs, targets = self._get_inputs_targets(batch)
             if mode == 'training':
                 outputs = self.net(inputs)
@@ -144,10 +140,27 @@ class BaseTrainer:
             log[key] /= count
         return log, batch, outputs
 
+    def _allocate_data(self, batch):
+        """Allocate the data to the device.
+        Args:
+            batch (dict or sequence): A batch of the data.
+
+        Returns:
+            batch (dict or sequence): A batch of the allocated data.
+        """
+        if isinstance(batch, dict):
+            return dict((key, self._allocate_data(data)) for key, data in batch.items())
+        elif isinstance(batch, list):
+            return list(self._allocate_data(data) for data in batch)
+        elif isinstance(batch, tuple):
+            return tuple(self._allocate_data(data) for data in batch)
+        elif isinstance(batch, torch.Tensor):
+            return batch.to(self.device)
+
     def _get_inputs_targets(self, batch):
         """Specify the data inputs and targets.
         Args:
-            batch (dict or tuple): A batch of data.
+            batch (dict or sequence): A batch of data.
 
         Returns:
             inputs (torch.Tensor or sequence of torch.Tensor): The data inputs.

@@ -17,7 +17,7 @@ class BaseTrainer:
         metrics (list of torch.nn.Module): The metric functions.
         optimizer (torch.optim.Optimizer): The algorithm to train the network.
         lr_scheduler (torch.optim._LRScheduler): The scheduler to adjust the learning rate.
-        logger (Logger): The object for recording the log information and visualization.
+        logger (BaseLogger): The object for recording the log information and visualization.
         monitor (Monitor): The object to determine whether to save the checkpoint.
         num_epochs (int): The total number of training epochs.
     """
@@ -48,6 +48,7 @@ class BaseTrainer:
         """
         if self.np_random_seeds is None:
             self.np_random_seeds = random.sample(range(10000000), k=self.num_epochs)
+
         while self.epoch <= self.num_epochs:
             # Reset the numpy random seed.
             np.random.seed(self.np_random_seeds[self.epoch - 1])
@@ -92,6 +93,8 @@ class BaseTrainer:
                 break
 
             self.epoch +=1
+
+        self.logger.close()
 
     def _run_epoch(self, mode):
         """Run an epoch for training.

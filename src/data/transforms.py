@@ -165,7 +165,7 @@ class Normalize(BaseTransform):
         """
         img = img.copy()
         for c, mean, std in zip(range(img.shape[-1]), means, stds):
-            img[..., c] = (img[..., c] - mean) / std
+            img[..., c] = (img[..., c] - mean) / (std + 1e-10)
         return img
 
 

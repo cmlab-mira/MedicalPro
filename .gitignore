@@ -104,6 +104,7 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-# Experimental results
-configs/
-models/
+# Experimental configs and results
+configs/*
+!configs/example_config.yaml
+models/*

@@ -35,8 +35,8 @@ def test_my_dataset(config, dummy_input):
     """Test to create the derived dataset.
     """
     cfg = config
-    image, label = dummy_input(image_size=(1000, 512, 512, 3),
-                               label_size=(1000, 512, 512, 1))
+    image, label = dummy_input(image_size=(10, 32, 32, 3),
+                               label_size=(10, 32, 32, 1))
     dataset = MyDataset(image, label, **cfg.dataset)
 
 
@@ -44,8 +44,8 @@ def test_data_loader(config, dummy_input):
     """Test to create the dataloader and yield a batch of data.
     """
     cfg = config
-    image, label = dummy_input(image_size=(1000, 512, 512, 3),
-                               label_size=(1000, 512, 512, 1))
+    image, label = dummy_input(image_size=(10, 32, 32, 3),
+                               label_size=(10, 32, 32, 1))
     dataset = MyDataset(image, label, **cfg.dataset)
     dataloader = Dataloader(dataset, **cfg.dataloader)
 

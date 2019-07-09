@@ -48,8 +48,7 @@ class MyLogger(BaseLogger):
 
     def _add_images(self, epoch, train_batch, train_output, valid_batch, valid_output):
         data, target = valid_batch
-        with SummaryWriter(self.log_dir) as writer:
-            writer.add_images('data', data, epoch)
+        self.writer.add_images('data', data, epoch)
 
 
 class MyTrainer(BaseTrainer):
@@ -76,7 +75,7 @@ class MyTrainer(BaseTrainer):
         Returns:
             losses (sequence of torch.Tensor): The computed losses.
         """
-        losses = [loss(output, target) for loss in self.losses]
+        losses = [loss_fn(output, target) for loss_fn in self.loss_fns]
         return losses
 
     def _compute_metrics(self, output, target):
@@ -88,7 +87,7 @@ class MyTrainer(BaseTrainer):
         Returns:
             metrics (sequence of torch.Tensor): The computed metrics.
         """
-        metrics = [metric(output, target) for metric in self.metrics]
+        metrics = [metric_fn(output, target) for metric_fn in self.metric_fns]
         return metrics
 
 def test_trainer(tmpdir):
@@ -114,9 +113,9 @@ def test_trainer(tmpdir):
         valid_dataloader = DataLoader(datasets.MNIST(root=str(root), train=False, download=True, transform=transform), **kwargs)
 
         net = MyNet()
-        losses = [nn.NLLLoss()]
+        loss_fns = [nn.NLLLoss()]
         loss_weights = [1.0]
-        metrics = [MyMetric()]
+        metric_fns = [MyMetric()]
         optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.5)
         lr_scheduler = None
 
@@ -124,7 +123,7 @@ def test_trainer(tmpdir):
         monitor = Monitor(checkpoints_dir=Path('./models/test/checkpoints'), mode='min', target='Loss', saved_freq=5, early_stop=0)
         num_epochs = 10
 
-        trainer = MyTrainer(device=device, train_dataloader=train_dataloader, valid_dataloader=valid_dataloader, net=net, losses=losses, loss_weights=loss_weights, metrics=metrics, optimizer=optimizer, lr_scheduler=lr_scheduler, logger=logger, monitor=monitor, num_epochs=num_epochs)
+        trainer = MyTrainer(device=device, train_dataloader=train_dataloader, valid_dataloader=valid_dataloader, net=net, loss_fns=loss_fns, loss_weights=loss_weights, metric_fns=metric_fns, optimizer=optimizer, lr_scheduler=lr_scheduler, logger=logger, monitor=monitor, num_epochs=num_epochs)
 
         trainer.train()
 

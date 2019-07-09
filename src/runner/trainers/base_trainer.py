@@ -12,9 +12,9 @@ class BaseTrainer:
         train_dataloader (Dataloader): The training dataloader.
         valid_dataloader (Dataloader): The validation dataloader.
         net (BaseNet): The network architecture.
-        losses (list of torch.nn.Module): The loss functions.
+        loss_fns (list of torch.nn.Module): The loss functions.
         loss_weights (list of float): The corresponding weights of loss functions.
-        metrics (list of torch.nn.Module): The metric functions.
+        metric_fns (list of torch.nn.Module): The metric functions.
         optimizer (torch.optim.Optimizer): The algorithm to train the network.
         lr_scheduler (torch.optim._LRScheduler): The scheduler to adjust the learning rate.
         logger (BaseLogger): The object for recording the log information and visualization.
@@ -22,15 +22,15 @@ class BaseTrainer:
         num_epochs (int): The total number of training epochs.
     """
     def __init__(self, device, train_dataloader, valid_dataloader,
-                 net, losses, loss_weights, metrics, optimizer,
+                 net, loss_fns, loss_weights, metric_fns, optimizer,
                  lr_scheduler, logger, monitor, num_epochs):
         self.device = device
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
         self.net = net.to(device)
-        self.losses = [loss.to(device) for loss in losses]
+        self.loss_fns = [loss_fn.to(device) for loss_fn in loss_fns]
         self.loss_weights = torch.tensor(loss_weights, dtype=torch.float, device=device)
-        self.metrics = [metric.to(device) for metric in metrics]
+        self.metric_fns = [metric_fn.to(device) for metric_fn in metric_fns]
         self.optimizer = optimizer
 
         if isinstance(lr_scheduler, torch.optim.lr_scheduler.CyclicLR):
@@ -200,10 +200,10 @@ class BaseTrainer:
         """
         log = {}
         log['Loss'] = 0
-        for loss in self.losses:
-            log[loss.__class__.__name__] = 0
-        for metric in self.metrics:
-            log[metric.__class__.__name__] = 0
+        for loss_fn in self.loss_fns:
+            log[loss_fn.__class__.__name__] = 0
+        for metric_fn in self.metric_fns:
+            log[metric_fn.__class__.__name__] = 0
         return log
 
     def _update_log(self, log, batch_size, loss, losses, metrics):
@@ -216,10 +216,10 @@ class BaseTrainer:
             metrics (sequence of torch.Tensor): The computed metrics.
         """
         log['Loss'] += loss.item() * batch_size
-        for loss, _loss in zip(self.losses, losses):
-            log[loss.__class__.__name__] += _loss.item() * batch_size
-        for metric, _metric in zip(self.metrics, metrics):
-            log[metric.__class__.__name__] += _metric.item() * batch_size
+        for loss_fn, loss in zip(self.loss_fns, losses):
+            log[loss_fn.__class__.__name__] += loss.item() * batch_size
+        for metric_fn, metric in zip(self.metric_fns, metrics):
+            log[metric_fn.__class__.__name__] += metric.item() * batch_size
 
     def save(self, path):
         """Save the model checkpoint.

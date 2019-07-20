@@ -7,7 +7,7 @@ dataset:
     name: 'MyDataset'
     kwargs:
         data_dir: 'path/to/data'
-        transforms: # Could define multiple transforms for training/validation or input/target.
+        transforms: # Could define multiple transforms.
             - name: 'MyTransform1'
               kwargs:
                   kwarg1: value1

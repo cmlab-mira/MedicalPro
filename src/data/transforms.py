@@ -349,3 +349,38 @@ class RandomElasticDeformation(BaseTransform):
         img = resampler.Execute(img)
         img = sitk.GetArrayFromImage(img).reshape(shape)
         return img
+
+    
+class RandomFlip(BaseTransform):
+    """Do the random flip horizontally or vertically.
+    Args:
+        direction (str): Flip image in 'LR' or 'UD' direction.
+        prob (float, optional): The probability of applying the deformation (default: 0.5).
+    """
+    def __init__(self, direction, prob=0.5):
+        if direction not in ['UD', 'LR']:
+            raise ValueError('The direction should be \'UD\' or \'LR\'.')        
+        
+        self.direction = direction
+        self.prob = max(0, min(prob, 1))
+
+    def __call__(self, *imgs, **kwargs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be flipped.
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The flipped images.
+        """
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+
+        if random.random() < self.prob:
+            if self.direction == 'LR':
+                imgs = tuple([np.flip(img, 1) for img in imgs])
+            elif self.direction == 'UD':
+                imgs = tuple([np.flip(img, 0) for img in imgs])
+        return imgs

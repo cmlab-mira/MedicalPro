@@ -4,6 +4,12 @@ dataset:
         - name: 'RandomCrop'
           kwargs:
               size: [256, 256]
+        - name: 'RandomFlip'
+          kwargs:
+              direction: 'LR'
+        - name: 'RandomFlip'
+          kwargs:
+              direction: 'UD'
         - name: 'Normalize'
         - name: 'ToTensor'
 

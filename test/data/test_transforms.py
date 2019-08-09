@@ -2,13 +2,7 @@ import torch
 import pytest
 import numpy as np
 
-from src.data.transforms import compose
-from src.data.transforms import ToTensor
-from src.data.transforms import Normalize
-from src.data.transforms import RandomCrop
-from src.data.transforms import RandomFlip
-from src.data.transforms import Resize
-from src.data.transforms import RandomElasticDeformation
+from src.data.transforms import *
 
 
 def test_composed_transforms(config, dummy_input):
@@ -101,13 +95,13 @@ def test_resize(dummy_input):
     assert _label.dtype == label.dtype
     
 
-def test_random_flip(dummy_input):
-    """Test to flip the 2D and 3D images horizontally and vertically.
+def test_random_horizontal_flip(dummy_input):
+    """Test to flip the 2D and 3D images horizontally.
     """
     # Test the 2D image: H, W, C
     image, label = dummy_input(image_size=(512, 512, 3),
                                label_size=(512, 512, 1))
-    transform = RandomFlip(direction='LR', prob=1)
+    transform = RandomHorizontalFlip( prob=1)
     _image, _label = transform(image, label)
     _image, _label = transform(_image, _label)
     assert (image == _image).all()
@@ -116,12 +110,34 @@ def test_random_flip(dummy_input):
     # Test the 3D image: H, W, D, C
     image, label = dummy_input(image_size=(512, 512, 20, 3),
                                label_size=(512, 512, 20, 1))
-    transform = RandomFlip(direction='LR', prob=1)
+    transform = RandomHorizontalFlip(prob=1)
     _image, _label = transform(image, label)
     _image, _label = transform(_image, _label)
     assert (image == _image).all()
     assert (label == _label).all()
 
+    
+def test_random_vertical_flip(dummy_input):
+    """Test to flip the 2D and 3D images vertically.
+    """
+    # Test the 2D image: H, W, C
+    image, label = dummy_input(image_size=(512, 512, 3),
+                               label_size=(512, 512, 1))
+    transform = RandomVerticalFlip(prob=1)
+    _image, _label = transform(image, label)
+    _image, _label = transform(_image, _label)
+    assert (image == _image).all()
+    assert (label == _label).all()
+    
+    # Test the 3D image: H, W, D, C
+    image, label = dummy_input(image_size=(512, 512, 20, 3),
+                               label_size=(512, 512, 20, 1))
+    transform = RandomVerticalFlip(prob=1)
+    _image, _label = transform(image, label)
+    _image, _label = transform(_image, _label)
+    assert (image == _image).all()
+    assert (label == _label).all()
+    
 
 @pytest.mark.skip(reason="There are some problems with elastic deformation.")
 def test_random_elastic_deformation(dummy_input):

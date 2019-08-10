@@ -229,10 +229,10 @@ class RandomCrop(BaseTransform):
 
         if ndim == 3:
             h0, hn, w0, wn = self._get_coordinates(imgs[0], self.size)
-            imgs = tuple([img[h0: hn, w0: wn] for img in imgs])
+            imgs = tuple([img[h0:hn, w0:wn] for img in imgs])
         elif ndim == 4:
             h0, hn, w0, wn, d0, dn = self._get_coordinates(imgs[0], self.size)
-            imgs = tuple([img[h0: hn, w0: wn, d0: dn] for img in imgs])
+            imgs = tuple([img[h0:hn, w0:wn, d0:dn] for img in imgs])
         return imgs
 
     @staticmethod
@@ -349,3 +349,135 @@ class RandomElasticDeformation(BaseTransform):
         img = resampler.Execute(img)
         img = sitk.GetArrayFromImage(img).reshape(shape)
         return img
+
+
+class RandomHorizontalFlip(BaseTransform):
+    """Do the random flip horizontally.
+    Args:
+        prob (float, optional): The probability of applying the flip (default: 0.5).
+    """
+    def __init__(self, prob=0.5):
+        self.prob = max(0, min(prob, 1))
+
+    def __call__(self, *imgs, **kwargs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be flipped.
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The flipped images.
+        """
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+
+        if random.random() < self.prob:
+            imgs = tuple([np.flip(img, 1) for img in imgs])
+        return imgs
+
+
+class RandomVerticalFlip(BaseTransform):
+    """Do the random flip vertically.
+    Args:
+        prob (float, optional): The probability of applying the flip (default: 0.5).
+    """
+    def __init__(self, prob=0.5):
+        self.prob = max(0, min(prob, 1))
+
+    def __call__(self, *imgs, **kwargs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be flipped.
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The flipped images.
+        """
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+
+        if random.random() < self.prob:
+            imgs = tuple([np.flip(img, 0) for img in imgs])
+        return imgs
+
+
+class RandomCropPatch(BaseTransform):
+    """Crop a tuple of LR images at the same random location and a tuple of HR images at the corresponding location.
+
+    Note that it expects the first half of the images are LR, and the remaining images are HR.
+
+    Args:
+        size (list): The desired output size of the cropped LR images.
+        ratio (int): The ratio between the HR images and the LR images.
+    """
+    def __init__(self, size):
+        self.size = size
+        self.ratio = ratio
+
+    def __call__(self, *imgs, **kwargs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be cropped.
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The cropped images.
+        """
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+
+        ndim = imgs[0].ndim
+        if ndim - 1 != len(self.size):
+            raise ValueError(f'The dimensions of the cropped size should be the same as the image ({ndim - 1}). Got {len(self.size)}')
+
+        if len(imgs) % 2 == 1:
+            raise ValueError(f'The number of the LR images should be the same as the HR images')
+
+        lr_imgs, hr_imgs = imgs[:len(imgs) // 2], imgs[len(imgs) // 2:]
+        if not all(j // i == self.ratio for lr_img, hr_img in zip(lr_imgs, hr_imgs) for i, j in zip(lr_img.shape, hr_img.shape)):
+            raise ValueError(f'The ratio between the HR images and the LR images should be {self.ratio}.')
+
+        if ndim == 3:
+            lr_h0, lr_hn, lr_w0, lr_wn = self._get_coordinates(lr_imgs[0], self.size)
+            hr_h0, hr_hn, hr_w0, hr_wn = lr_h0 * self.ratio, lr_hn * self.ratio, \
+                                         lr_w0 * self.ratio, lr_wn * self.ratio
+            imgs = tuple([lr_img[lr_h0:lr_hn, lr_w0:lr_wn] for lr_img in lr_imgs] + \
+                         [hr_img[hr_h0:hr_hn, hr_w0:hr_wn] for hr_img in hr_imgs])
+        elif ndim == 4:
+            lr_h0, lr_hn, lr_w0, lr_wn, lr_d0, lr_dn = self._get_coordinates(lr_imgs[0], self.size)
+            hr_h0, hr_hn, hr_w0, hr_wn, hr_d0, hr_dn = lr_h0 * self.ratio, lr_hn * self.ratio, \
+                                                       lr_w0 * self.ratio, lr_wn * self.ratio, \
+                                                       lr_d0 * self.ratio, lr_dn * self.ratio
+            imgs = tuple([lr_img[lr_h0:lr_hn, lr_w0:lr_wn, lr_d0:lr_dn] for lr_img in lr_imgs] + \
+                         [hr_img[hr_h0:hr_hn, hr_w0:hr_wn, hr_d0:hr_dn] for hr_img in hr_imgs])
+        return imgs
+
+    @staticmethod
+    def _get_coordinates(img, size):
+        """Compute the coordinates of the cropped image.
+        Args:
+            img (numpy.ndarray): The image to be cropped.
+            size (list): The desired output size of the cropped image.
+
+        Returns:
+            coordinates (tuple): The coordinates of the cropped image.
+        """
+        if any(i - j < 0 for i, j in zip(img.shape, size)):
+            raise ValueError(f'The image ({img.shape}) is smaller than the cropped size ({size}). Please use a smaller cropped size.')
+
+        if img.ndim == 3:
+            h, w = img.shape[:-1]
+            ht, wt = size
+            h0, w0 = random.randint(0, h - ht), random.randint(0, w - wt)
+            return h0, h0 + ht, w0, w0 + wt
+        elif img.ndim == 4:
+            h, w, d = img.shape[:-1]
+            ht, wt, dt = size
+            h0, w0, d0 = random.randint(0, h - ht), random.randint(0, w - wt), random.randint(0, d - dt)
+            return h0, h0 + ht, w0, w0 + wt, d0, d0 + dt

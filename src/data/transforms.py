@@ -376,8 +376,8 @@ class RandomHorizontalFlip(BaseTransform):
         if random.random() < self.prob:
             imgs = tuple([np.flip(img, 1) for img in imgs])
         return imgs
-    
-    
+
+
 class RandomVerticalFlip(BaseTransform):
     """Do the random flip vertically.
     Args:
@@ -440,21 +440,21 @@ class RandomCropPatch(BaseTransform):
             raise ValueError(f'The number of the LR images should be the same as the HR images')
 
         lr_imgs, hr_imgs = imgs[:len(imgs) // 2], imgs[len(imgs) // 2:]
-        if not all(j // i == 2 for lr_img, hr_img in zip(lr_imgs, hr_imgs) for i, j in zip(lr_img.shape, hr_img.shape)):
+        if not all(j // i == self.ratio for lr_img, hr_img in zip(lr_imgs, hr_imgs) for i, j in zip(lr_img.shape, hr_img.shape)):
             raise ValueError(f'The ratio between the HR images and the LR images should be {self.ratio}.')
 
         if ndim == 3:
             lr_h0, lr_hn, lr_w0, lr_wn = self._get_coordinates(lr_imgs[0], self.size)
-            hr_h0, hr_hn, hr_w0, hr_wn = lr_h0 * self.ratio, lr_hn * self.ratio,\
+            hr_h0, hr_hn, hr_w0, hr_wn = lr_h0 * self.ratio, lr_hn * self.ratio, \
                                          lr_w0 * self.ratio, lr_wn * self.ratio
-            imgs = tuple([lr_img[lr_h0:lr_hn, lr_w0:lr_wn] for lr_img in lr_imgs] +
+            imgs = tuple([lr_img[lr_h0:lr_hn, lr_w0:lr_wn] for lr_img in lr_imgs] + \
                          [hr_img[hr_h0:hr_hn, hr_w0:hr_wn] for hr_img in hr_imgs])
         elif ndim == 4:
             lr_h0, lr_hn, lr_w0, lr_wn, lr_d0, lr_dn = self._get_coordinates(lr_imgs[0], self.size)
-            hr_h0, hr_hn, hr_w0, hr_wn, hr_d0, hr_dn = lr_h0 * self.ratio, lr_hn * self.ratio,\
-                                                       lr_w0 * self.ratio, lr_wn * self.ratio,\
+            hr_h0, hr_hn, hr_w0, hr_wn, hr_d0, hr_dn = lr_h0 * self.ratio, lr_hn * self.ratio, \
+                                                       lr_w0 * self.ratio, lr_wn * self.ratio, \
                                                        lr_d0 * self.ratio, lr_dn * self.ratio
-            imgs = tuple([lr_img[lr_h0:lr_hn, lr_w0:lr_wn, lr_d0:lr_dn] for lr_img in lr_imgs] +
+            imgs = tuple([lr_img[lr_h0:lr_hn, lr_w0:lr_wn, lr_d0:lr_dn] for lr_img in lr_imgs] + \
                          [hr_img[hr_h0:hr_hn, hr_w0:hr_wn, hr_d0:hr_dn] for hr_img in hr_imgs])
         return imgs
 

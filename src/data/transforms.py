@@ -414,7 +414,7 @@ class RandomCropPatch(BaseTransform):
         size (list): The desired output size of the cropped LR images.
         ratio (int): The ratio between the HR images and the LR images.
     """
-    def __init__(self, size):
+    def __init__(self, size, ratio):
         self.size = size
         self.ratio = ratio
 
@@ -440,7 +440,7 @@ class RandomCropPatch(BaseTransform):
             raise ValueError(f'The number of the LR images should be the same as the HR images')
 
         lr_imgs, hr_imgs = imgs[:len(imgs) // 2], imgs[len(imgs) // 2:]
-        if not all(j // i == self.ratio for lr_img, hr_img in zip(lr_imgs, hr_imgs) for i, j in zip(lr_img.shape, hr_img.shape)):
+        if not all(j // i == self.ratio for lr_img, hr_img in zip(lr_imgs, hr_imgs) for i, j in zip(lr_img.shape[:-1], hr_img.shape[:-1])):
             raise ValueError(f'The ratio between the HR images and the LR images should be {self.ratio}.')
 
         if ndim == 3:

@@ -43,8 +43,8 @@ class BaseTrainer:
         if APEX_AVAILABLE:
             self.net, self.optimizer = amp.initialize(self.net, self.optimizer, opt_level=opt_level)
 
-        if isinstance(lr_scheduler, torch.optim.lr_scheduler.CyclicLR) or isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-            raise NotImplementedError('Do not support torch.optim.lr_scheduler.CyclicLR scheduler and torch.optim.lr_scheduler.ReduceLROnPlateau scheduler yet.')
+        if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+            raise NotImplementedError('Do not support torch.optim.lr_scheduler.ReduceLROnPlateau scheduler yet.')
         self.lr_scheduler = lr_scheduler
 
         self.logger = logger
@@ -76,7 +76,7 @@ class BaseTrainer:
                 valid_log, valid_batch, valid_outputs = None, None, None
 
             # Adjust the learning rate.
-            if self.lr_scheduler is not None:
+            if self.lr_scheduler is not None and not isinstance(self.lr_scheduler, torch.optim.lr_scheduler.CyclicLR):
                 self.lr_scheduler.step()
 
             # Record the log information and visualization.
@@ -142,12 +142,16 @@ class BaseTrainer:
                 else:
                     loss.backward()
                 self.optimizer.step()
+                if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.CyclicLR):
+                    self.lr_scheduler.step()
+                with torch.no_grad():
+                    metrics = self._compute_metrics(outputs, targets)
             else:
                 with torch.no_grad():
                     outputs = self.net(inputs)
                     losses = self._compute_losses(outputs, targets)
                     loss = (torch.stack(losses) * self.loss_weights).sum()
-            metrics =  self._compute_metrics(outputs, targets)
+                    metrics =  self._compute_metrics(outputs, targets)
 
             batch_size = self.train_dataloader.batch_size if mode == 'training' else self.valid_dataloader.batch_size
             self._update_log(log, batch_size, loss, losses, metrics)

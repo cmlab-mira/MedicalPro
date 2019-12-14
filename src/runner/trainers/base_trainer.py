@@ -3,6 +3,12 @@ import random
 import torch
 import numpy as np
 from tqdm import tqdm
+try:
+    from apex import amp
+    APEX_AVAILABLE = True
+except ImportError:
+    APEX_AVAILABLE = False
+    logging.warning(f'The apex.amp is not available!')
 
 
 class BaseTrainer:
@@ -21,10 +27,11 @@ class BaseTrainer:
         monitor (Monitor): The object to determine whether to save the checkpoint.
         num_epochs (int): The total number of training epochs.
         valid_freq (int): The validation frequency (default: 1).
+        opt_level (str): The optimization level of apex.amp (default: 'O0').
     """
     def __init__(self, device, train_dataloader, valid_dataloader,
                  net, loss_fns, loss_weights, metric_fns, optimizer,
-                 lr_scheduler, logger, monitor, num_epochs, valid_freq=1):
+                 lr_scheduler, logger, monitor, num_epochs, valid_freq=1, opt_level='O0'):
         self.device = device
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
@@ -33,6 +40,8 @@ class BaseTrainer:
         self.loss_weights = torch.tensor(loss_weights, dtype=torch.float, device=device)
         self.metric_fns = [metric_fn.to(device) for metric_fn in metric_fns]
         self.optimizer = optimizer
+        if APEX_AVAILABLE:
+            self.net, self.optimizer = amp.initialize(self.net, self.optimizer, opt_level=opt_level)
 
         if isinstance(lr_scheduler, torch.optim.lr_scheduler.CyclicLR) or isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
             raise NotImplementedError('Do not support torch.optim.lr_scheduler.CyclicLR scheduler and torch.optim.lr_scheduler.ReduceLROnPlateau scheduler yet.')
@@ -127,7 +136,11 @@ class BaseTrainer:
                 losses = self._compute_losses(outputs, targets)
                 loss = (torch.stack(losses) * self.loss_weights).sum()
                 self.optimizer.zero_grad()
-                loss.backward()
+                if APEX_AVAILABLE:
+                    with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                else:
+                    loss.backward()
                 self.optimizer.step()
             else:
                 with torch.no_grad():
@@ -235,7 +248,8 @@ class BaseTrainer:
             'monitor': self.monitor,
             'epoch': self.epoch,
             'random_state': random.getstate(),
-            'np_random_seeds': self.np_random_seeds
+            'np_random_seeds': self.np_random_seeds,
+            'amp': amp.state_dict() if APEX_AVAILABLE else None
         }, path)
 
     def load(self, path):
@@ -252,3 +266,5 @@ class BaseTrainer:
         self.epoch = checkpoint['epoch'] + 1
         random.setstate(checkpoint['random_state'])
         self.np_random_seeds = checkpoint['np_random_seeds']
+        if checkpoint['amp']:
+            amp.load_state_dict(checkpoint['amp'])

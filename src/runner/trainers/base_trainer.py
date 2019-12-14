@@ -1,8 +1,8 @@
-import torch
 import logging
-from tqdm import tqdm
 import random
+import torch
 import numpy as np
+from tqdm import tqdm
 
 
 class BaseTrainer:
@@ -20,10 +20,11 @@ class BaseTrainer:
         logger (BaseLogger): The object for recording the log information and visualization.
         monitor (Monitor): The object to determine whether to save the checkpoint.
         num_epochs (int): The total number of training epochs.
+        valid_freq (int): The validation frequency (default: 1).
     """
     def __init__(self, device, train_dataloader, valid_dataloader,
                  net, loss_fns, loss_weights, metric_fns, optimizer,
-                 lr_scheduler, logger, monitor, num_epochs):
+                 lr_scheduler, logger, monitor, num_epochs, valid_freq=1):
         self.device = device
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
@@ -33,13 +34,14 @@ class BaseTrainer:
         self.metric_fns = [metric_fn.to(device) for metric_fn in metric_fns]
         self.optimizer = optimizer
 
-        if isinstance(lr_scheduler, torch.optim.lr_scheduler.CyclicLR):
-            raise NotImplementedError('Do not support torch.optim.lr_scheduler.CyclicLR scheduler yet.')
+        if isinstance(lr_scheduler, torch.optim.lr_scheduler.CyclicLR) or isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+            raise NotImplementedError('Do not support torch.optim.lr_scheduler.CyclicLR scheduler and torch.optim.lr_scheduler.ReduceLROnPlateau scheduler yet.')
         self.lr_scheduler = lr_scheduler
 
         self.logger = logger
         self.monitor = monitor
         self.num_epochs = num_epochs
+        self.valid_freq = valid_freq
         self.epoch = 1
         self.np_random_seeds = None
 
@@ -58,15 +60,14 @@ class BaseTrainer:
             logging.info(f'Epoch {self.epoch}.')
             train_log, train_batch, train_outputs = self._run_epoch('training')
             logging.info(f'Train log: {train_log}.')
-            valid_log, valid_batch, valid_outputs = self._run_epoch('validation')
-            logging.info(f'Valid log: {valid_log}.')
+            if self.epoch % self.valid_freq == 0:
+                valid_log, valid_batch, valid_outputs = self._run_epoch('validation')
+                logging.info(f'Valid log: {valid_log}.')
+            else:
+                valid_log, valid_batch, valid_outputs = None, None, None
 
             # Adjust the learning rate.
-            if self.lr_scheduler is None:
-                pass
-            elif isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau) and mode == 'validation':
-                self.lr_scheduler.step(valid_log['Loss'])
-            else:
+            if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
 
             # Record the log information and visualization.
@@ -78,19 +79,20 @@ class BaseTrainer:
             if saved_path:
                 logging.info(f'Save the checkpoint to {saved_path}.')
                 self.save(saved_path)
+            
+            if self.epoch % self.valid_freq == 0:
+                # Save the best checkpoint.
+                saved_path = self.monitor.is_best(valid_log)
+                if saved_path:
+                    logging.info(f'Save the best checkpoint to {saved_path} ({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                    self.save(saved_path)
+                else:
+                    logging.info(f'The best checkpoint is remained (at epoch {self.epoch - self.monitor.not_improved_count * self.valid_freq}, {self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
 
-            # Save the best checkpoint.
-            saved_path = self.monitor.is_best(valid_log)
-            if saved_path:
-                logging.info(f'Save the best checkpoint to {saved_path} ({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
-                self.save(saved_path)
-            else:
-                logging.info(f'The best checkpoint is remained (at epoch {self.epoch - self.monitor.not_improved_count}, {self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
-
-            # Early stop.
-            if self.monitor.is_early_stopped():
-                logging.info('Early stopped.')
-                break
+                # Early stop.
+                if self.monitor.is_early_stopped():
+                    logging.info('Early stopped.')
+                    break
 
             self.epoch +=1
 

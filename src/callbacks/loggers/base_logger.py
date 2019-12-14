@@ -18,7 +18,7 @@ class BaseLogger:
         """
         self.writer = SummaryWriter(log_dir)
 
-    def write(self, epoch, train_log, train_batch, train_outputs, valid_log, valid_batch, valid_outputs):
+    def write(self, epoch, train_log, train_batch, train_outputs, valid_log=None, valid_batch=None, valid_outputs=None):
         """Plot the network architecture and the visualization results.
         Args:
             epoch (int): The number of trained epochs.

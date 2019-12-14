@@ -8,10 +8,12 @@ class Monitor:
         mode (str): The mode of the monitor ('max' or 'min').
         target (str): The target of the monitor ('Loss', 'MyLoss' or 'MyMetric').
         saved_freq (int): The saved frequency.
-        early_stop (int): The number of epochs to early stop the training if monitor target is not improved (default: 0, do not early stop the training).
+        early_stop (int): The number of times to early stop the training if monitor target is not improved (default: 0, do not early stop the training). Notice that the unit is validation times, not epoch.
     """
-    def __init__(self, checkpoints_dir, mode, target, saved_freq, early_stop=0):
+    def __init__(self, checkpoints_dir, mode, target, saved_freq, early_stop=0):        
         self.checkpoints_dir = checkpoints_dir
+        if mode not in ['min', 'max']:
+            raise ValueError(f"The mode should be 'min' or 'max'. Got {mode}.")
         self.mode = mode
         self.target = target
         self.saved_freq = saved_freq
@@ -19,7 +21,6 @@ class Monitor:
         self.best = -math.inf if self.mode == 'max' else math.inf
         self.not_improved_count = 0
 
-        # Create the checkpoints folder
         if not self.checkpoints_dir.is_dir():
             self.checkpoints_dir.mkdir(parents=True)
 

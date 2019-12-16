@@ -2,6 +2,7 @@ import logging
 import random
 import torch
 import numpy as np
+from torch.optim.lr_scheduler import CyclicLR, OneCycleLR, CosineAnnealingWarmRestarts
 from tqdm import tqdm
 try:
     from apex import amp
@@ -78,7 +79,7 @@ class BaseTrainer:
                 valid_log, valid_batch, valid_outputs = None, None, None
 
             # Adjust the learning rate.
-            if self.lr_scheduler is not None and not isinstance(self.lr_scheduler, torch.optim.lr_scheduler.CyclicLR):
+            if self.lr_scheduler is not None and not isinstance(self.lr_scheduler, (CyclicLR, OneCycleLR, CosineAnnealingWarmRestarts)):
                 self.lr_scheduler.step()
 
             # Record the log information and visualization.
@@ -147,8 +148,10 @@ class BaseTrainer:
                 if (i + 1) % self.grad_accumulate_steps() == 0 or (i + 1) == len(dataloader):
                     self.optimizer.step()
                     self.optimizer.zero_grad()
-                if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.CyclicLR):
-                    self.lr_scheduler.step()
+                    if isinstance(self.lr_scheduler, (CyclicLR, OneCycleLR)):
+                        self.lr_scheduler.step()
+                    elif isinstance(self.lr_scheduler, CosineAnnealingWarmRestarts):
+                        self.lr_scheduler.step((self.epoch - 1) + i / len(dataloader))
                 with torch.no_grad():
                     metrics = self._compute_metrics(outputs, targets)
             else:

@@ -10,7 +10,7 @@ class Monitor:
         saved_freq (int): The saved frequency.
         early_stop (int): The number of times to early stop the training if monitor target is not improved (default: 0, do not early stop the training). Notice that the unit is validation times, not epoch.
     """
-    def __init__(self, checkpoints_dir, mode, target, saved_freq, early_stop=0):        
+    def __init__(self, checkpoints_dir, mode, target, saved_freq, early_stop=0):
         self.checkpoints_dir = checkpoints_dir
         if mode not in ['min', 'max']:
             raise ValueError(f"The mode should be 'min' or 'max'. Got {mode}.")

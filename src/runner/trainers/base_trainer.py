@@ -28,13 +28,12 @@ class BaseTrainer:
         monitor (Monitor): The object to determine whether to save the checkpoint.
         num_epochs (int): The total number of training epochs.
         valid_freq (int): The validation frequency (default: 1).
-        grad_accumulation_steps (int): The number of gradient accumulation steps (default: 1).
         opt_level (str): The optimization level of apex.amp (default: 'O0').
     """
     def __init__(self, device, train_dataloader, valid_dataloader,
                  net, loss_fns, loss_weights, metric_fns, optimizer,
                  lr_scheduler, logger, monitor, num_epochs,
-                 valid_freq=1, grad_accumulation_steps=1, opt_level='O0'):
+                 valid_freq=1, opt_level='O0'):
         self.device = device
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
@@ -52,8 +51,6 @@ class BaseTrainer:
         self.monitor = monitor
         self.num_epochs = num_epochs
         self.valid_freq = valid_freq
-        self.grad_accumulation_steps = GradAccumulationSteps(grad_accumulation_steps=grad_accumulation_steps,
-                                                             total_steps=len(train_dataloader))
         self.epoch = 1
         self.np_random_seeds = None
 
@@ -140,12 +137,12 @@ class BaseTrainer:
                 loss = (torch.stack(losses) * self.loss_weights).sum()
                 if APEX_AVAILABLE:
                     with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                        scaled_loss /= self.grad_accumulation_steps(i)
+                        scaled_loss /= dataloader.grad_accumulation_steps(i)
                         scaled_loss.backward()
                 else:
-                    loss /= self.grad_accumulation_steps(i)
+                    loss /= dataloader.grad_accumulation_steps(i)
                     loss.backward()
-                if (i + 1) % self.grad_accumulate_steps() == 0 or (i + 1) == len(dataloader):
+                if (i + 1) % dataloader.grad_accumulation_steps() == 0 or (i + 1) == len(dataloader):
                     self.optimizer.step()
                     self.optimizer.zero_grad()
                     if isinstance(self.lr_scheduler, (CyclicLR, OneCycleLR)):
@@ -280,20 +277,3 @@ class BaseTrainer:
         self.np_random_seeds = checkpoint['np_random_seeds']
         if checkpoint['amp']:
             amp.load_state_dict(checkpoint['amp'])
-
-
-class GradAccumulationSteps:
-    """The gradient accumulation which considers the last training steps in an epoch.
-    Args:
-        grad_accumulation_steps (int): The number of gradient accumulation steps.
-        total_steps (int): The total number of training steps in an epoch.
-    """
-    def __init__(self, grad_accumulation_steps, total_steps):
-        self.grad_accumulation_steps = grad_accumulation_steps
-        self.last_steps = list(range(total_steps - total_steps % grad_accumulation_steps, total_steps))
-
-    def __call__(self, i=None):
-        if i in self.last_steps:
-            return len(self.last_steps)
-        else:
-            return self.grad_accumulation_steps

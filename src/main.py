@@ -1,11 +1,7 @@
 import argparse
 import logging
-import ipdb
-import os
-import sys
-import torch
 import random
-import importlib
+import torch
 import yaml
 from box import Box
 from pathlib import Path
@@ -25,12 +21,17 @@ def main(args):
         yaml.dump(config.to_dict(), f, default_flow_style=False)
 
     if not args.test:
-        # Make the experiment results deterministic.
-        random.seed(config.main.random_seed)
-        torch.manual_seed(random.getstate()[1][1])
-        torch.cuda.manual_seed_all(random.getstate()[1][1])
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+        random_seed = config.main.get('random_seed')
+        if random_seed is not None:
+            # Make the experiment results deterministic.
+            random.seed(random_seed)
+            torch.manual_seed(random_seed)
+            torch.cuda.manual_seed_all(random_seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+        else:
+            torch.backends.cudnn.deterministic = False
+            torch.backends.cudnn.benchmark = True
 
         logging.info('Create the device.')
         if 'cuda' in config.trainer.kwargs.device and not torch.cuda.is_available():
@@ -99,7 +100,7 @@ def main(args):
         trainer = _get_instance(src.runner.trainers, config.trainer)
 
         loaded_path = config.main.get('loaded_path')
-        if loaded_path:
+        if loaded_path is not None:
             logging.info(f'Load the previous checkpoint from "{loaded_path}".')
             trainer.load(Path(loaded_path))
             logging.info('Resume training.')
@@ -174,12 +175,10 @@ def _get_instance(module, config, *args):
     """
     cls = getattr(module, config.name)
     kwargs = config.get('kwargs')
-    return cls(*args, **config.kwargs) if kwargs else cls(*args)
+    return cls(*args, **config.kwargs) if kwargs is not None else cls(*args)
 
 
 if __name__ == "__main__":
-    #with ipdb.launch_ipdb_on_exception():
-    #    sys.breakpointhook = ipdb.set_trace
     logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s',
                         level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
     args = _parse_args()

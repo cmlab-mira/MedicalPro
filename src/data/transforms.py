@@ -281,7 +281,7 @@ class RandomElasticDeformation(BaseTransform):
         # Set the parameters of the bspline transform randomly.
         params = self.bspline_transform.GetParameters()
         params = np.asarray(params, dtype=np.float64)
-        params = params + np.random.randn(params.shape[0]) * self.sigma
+        params = params + np.array(list(random.gauss(0, self.sigma) for _ in range(params.shape[0])))
         if len(shape) == 3 and not self.do_z_deformation:
             params[0: len(params) // 3] = 0
         params = tuple(params)

@@ -1,7 +1,6 @@
 import logging
 import random
 import torch
-import numpy as np
 from torch.optim.lr_scheduler import CyclicLR, OneCycleLR, CosineAnnealingWarmRestarts
 from tqdm import tqdm
 try:
@@ -52,18 +51,11 @@ class BaseTrainer:
         self.num_epochs = num_epochs
         self.valid_freq = valid_freq
         self.epoch = 1
-        self.np_random_seeds = None
 
     def train(self):
         """The training process.
         """
-        if self.np_random_seeds is None:
-            self.np_random_seeds = random.sample(range(10000000), k=self.num_epochs)
-
         while self.epoch <= self.num_epochs:
-            # Reset the numpy random seed.
-            np.random.seed(self.np_random_seeds[self.epoch - 1])
-
             # Do training and validation.
             print()
             logging.info(f'Epoch {self.epoch}.')
@@ -257,7 +249,6 @@ class BaseTrainer:
             'monitor': self.monitor,
             'epoch': self.epoch,
             'random_state': random.getstate(),
-            'np_random_seeds': self.np_random_seeds,
             'amp': amp.state_dict() if APEX_AVAILABLE else None
         }, path)
 
@@ -274,6 +265,5 @@ class BaseTrainer:
         self.monitor = checkpoint['monitor']
         self.epoch = checkpoint['epoch'] + 1
         random.setstate(checkpoint['random_state'])
-        self.np_random_seeds = checkpoint['np_random_seeds']
         if checkpoint['amp']:
             amp.load_state_dict(checkpoint['amp'])

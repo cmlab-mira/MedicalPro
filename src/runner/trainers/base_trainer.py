@@ -246,7 +246,7 @@ class BaseTrainer:
             'net': self.net.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None,
-            'monitor': self.monitor,
+            'monitor': self.monitor.state_dict(),
             'epoch': self.epoch,
             'random_state': random.getstate(),
             'amp': amp.state_dict() if APEX_AVAILABLE else None
@@ -260,10 +260,10 @@ class BaseTrainer:
         checkpoint = torch.load(path, map_location=self.device)
         self.net.load_state_dict(checkpoint['net'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
-        if checkpoint['lr_scheduler']:
+        if checkpoint['lr_scheduler'] is not None:
             self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-        self.monitor = checkpoint['monitor']
+        self.monitor.load_state_dict(checkpoint['monitor'])
         self.epoch = checkpoint['epoch'] + 1
         random.setstate(checkpoint['random_state'])
-        if checkpoint['amp']:
+        if checkpoint['amp'] is not None:
             amp.load_state_dict(checkpoint['amp'])

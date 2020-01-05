@@ -62,3 +62,23 @@ class Monitor:
         """Whether to early stop the training.
         """
         return self.not_improved_count == self.early_stop
+    
+    def state_dict(self):
+        return {
+            'checkpoints_dir': self.checkpoints_dir,
+            'mode': self.mode,
+            'target': self.target,
+            'saved_freq': self.saved_freq,
+            'early_stop': self.early_stop,
+            'best': self.best,
+            'not_improved_count': self.not_improved_count
+        }
+    
+    def load_state_dict(self, state_dict):
+        self.checkpoints_dir = state_dict['checkpoints_dir']
+        self.mode = state_dict['mode']
+        self.target = state_dict['target']
+        self.saved_freq = state_dict['saved_freq']
+        self.early_stop = state_dict['early_stop']
+        self.best = state_dict['best']
+        self.not_improved_count = state_dict['not_improved_count']

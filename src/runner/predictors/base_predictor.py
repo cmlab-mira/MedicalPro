@@ -1,5 +1,5 @@
-import torch
 import logging
+import torch
 from tqdm import tqdm
 
 

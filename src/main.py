@@ -40,9 +40,9 @@ def main(args):
 
         logging.info('Create the training and validation datasets.')
         data_dir = Path(config.dataset.kwargs.data_dir)
-        config.dataset.kwargs.update(data_dir=data_dir, type='train')
+        config.dataset.kwargs.update(data_dir=data_dir, type_='train')
         train_dataset = _get_instance(src.data.datasets, config.dataset)
-        config.dataset.kwargs.update(data_dir=data_dir, type='valid')
+        config.dataset.kwargs.update(data_dir=data_dir, type_='valid')
         valid_dataset = _get_instance(src.data.datasets, config.dataset)
 
         logging.info('Create the training and validation dataloaders.')
@@ -116,7 +116,7 @@ def main(args):
 
         logging.info('Create the testing dataset.')
         data_dir = Path(config.dataset.kwargs.data_dir)
-        config.dataset.kwargs.update(data_dir=data_dir, type='test')
+        config.dataset.kwargs.update(data_dir=data_dir, type_='test')
         test_dataset = _get_instance(src.data.datasets, config.dataset)
 
         logging.info('Create the testing dataloader.')

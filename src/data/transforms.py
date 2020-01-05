@@ -6,6 +6,11 @@ import SimpleITK as sitk
 
 import src.data.transforms
 
+__all__ = [
+    'compose', 'Compose', 'ToTensor', 'Normalize', 'RandomCrop', 
+    'RandomElasticDeformation', 'RandomHorizontalFlip', 'RandomVerticalFlip'
+]
+
 
 def compose(transforms=None):
     """Compose several transforms together.

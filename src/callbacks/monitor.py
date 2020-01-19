@@ -6,10 +6,12 @@ class Monitor:
     Args:
         checkpoints_dir (Path): The root directory of the saved model checkpoints.
         mode (str): The mode of the monitor ('max' or 'min').
-        target (str): The target of the monitor ('Loss', 'MyLoss' or 'MyMetric').
+        target (str): The target of the monitor ('loss', 'my_loss' or 'my_metric').
         saved_freq (int): The saved frequency.
-        early_stop (int): The number of times to early stop the training if monitor target is not improved (default: 0, do not early stop the training). Notice that the unit is validation times, not epoch.
+        early_stop (int): The number of times to early stop the training if monitor target is not improved
+            (default: 0, do not early stop the training). Notice that the unit is validation times, not epoch.
     """
+
     def __init__(self, checkpoints_dir, mode, target, saved_freq, early_stop=0):
         self.checkpoints_dir = checkpoints_dir
         if mode not in ['min', 'max']:
@@ -62,7 +64,7 @@ class Monitor:
         """Whether to early stop the training.
         """
         return self.not_improved_count == self.early_stop
-    
+
     def state_dict(self):
         return {
             'checkpoints_dir': self.checkpoints_dir,
@@ -73,7 +75,7 @@ class Monitor:
             'best': self.best,
             'not_improved_count': self.not_improved_count
         }
-    
+
     def load_state_dict(self, state_dict):
         self.checkpoints_dir = state_dict['checkpoints_dir']
         self.mode = state_dict['mode']

@@ -1,7 +1,9 @@
 import logging
 import random
 import torch
-from torch.optim.lr_scheduler import CyclicLR, OneCycleLR, CosineAnnealingWarmRestarts
+from torch.optim.lr_scheduler import (
+    CyclicLR, OneCycleLR, CosineAnnealingWarmRestarts, ReduceLROnPlateau
+)
 from tqdm import tqdm
 try:
     from apex import amp
@@ -9,6 +11,8 @@ try:
 except ImportError:
     APEX_AVAILABLE = False
     logging.warning(f'The apex.amp is not available!')
+
+__all__ = ['BaseTrainer']
 
 
 class BaseTrainer:
@@ -18,17 +22,18 @@ class BaseTrainer:
         train_dataloader (Dataloader): The training dataloader.
         valid_dataloader (Dataloader): The validation dataloader.
         net (BaseNet): The network architecture.
-        loss_fns (list of torch.nn.Module): The loss functions.
-        loss_weights (list of float): The corresponding weights of loss functions.
-        metric_fns (list of torch.nn.Module): The metric functions.
+        loss_fns (LossFns): The loss functions.
+        loss_weights (torch.Tensor): The corresponding weights of loss functions.
+        metric_fns (MetricFns): The metric functions.
         optimizer (torch.optim.Optimizer): The algorithm to train the network.
-        lr_scheduler (torch.optim._LRScheduler): The scheduler to adjust the learning rate.
-        logger (BaseLogger): The object for recording the log information and visualization.
+        lr_scheduler (torch.optim.lr_scheduler): The scheduler to adjust the learning rate.
+        logger (BaseLogger): The object for recording the log information.
         monitor (Monitor): The object to determine whether to save the checkpoint.
         num_epochs (int): The total number of training epochs.
         valid_freq (int): The validation frequency (default: 1).
         opt_level (str): The optimization level of apex.amp (default: 'O0').
     """
+
     def __init__(self, device, train_dataloader, valid_dataloader,
                  net, loss_fns, loss_weights, metric_fns, optimizer,
                  lr_scheduler, logger, monitor, num_epochs,
@@ -36,15 +41,15 @@ class BaseTrainer:
         self.device = device
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
-        self.net = net.to(device)
-        self.loss_fns = [loss_fn.to(device) for loss_fn in loss_fns]
-        self.loss_weights = torch.tensor(loss_weights, dtype=torch.float, device=device)
-        self.metric_fns = [metric_fn.to(device) for metric_fn in metric_fns]
+        self.net = net
+        self.loss_fns = loss_fns
+        self.loss_weights = loss_weights
+        self.metric_fns = metric_fns
         self.optimizer = optimizer
         if APEX_AVAILABLE:
             self.net, self.optimizer = amp.initialize(self.net, self.optimizer, opt_level=opt_level)
-        if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-            raise NotImplementedError('Do not support torch.optim.lr_scheduler.ReduceLROnPlateau scheduler yet.')
+        if isinstance(self.lr_scheduler, ReduceLROnPlateau):
+            raise ValueError(f'Do not support {ReduceLROnPlateau} scheduler yet.')
         self.lr_scheduler = lr_scheduler
         self.logger = logger
         self.monitor = monitor
@@ -59,19 +64,21 @@ class BaseTrainer:
             # Do training and validation.
             print()
             logging.info(f'Epoch {self.epoch}.')
-            train_log, train_batch, train_outputs = self._run_epoch('training')
+            train_log, train_batch, train_outputs = self._run_epoch('train')
             logging.info(f'Train log: {train_log}.')
             if self.epoch % self.valid_freq == 0:
-                valid_log, valid_batch, valid_outputs = self._run_epoch('validation')
+                valid_log, valid_batch, valid_outputs = self._run_epoch('valid')
                 logging.info(f'Valid log: {valid_log}.')
             else:
                 valid_log, valid_batch, valid_outputs = None, None, None
 
             # Adjust the learning rate.
-            if self.lr_scheduler is not None and not isinstance(self.lr_scheduler, (CyclicLR, OneCycleLR, CosineAnnealingWarmRestarts)):
+            if (self.lr_scheduler is not None
+                    and not isinstance(self.lr_scheduler,
+                                       (CyclicLR, OneCycleLR, CosineAnnealingWarmRestarts))):
                 self.lr_scheduler.step()
 
-            # Record the log information and visualization.
+            # Record the log information.
             self.logger.write(self.epoch, train_log, train_batch, train_outputs,
                               valid_log, valid_batch, valid_outputs)
 
@@ -85,48 +92,50 @@ class BaseTrainer:
                 # Save the best checkpoint.
                 saved_path = self.monitor.is_best(valid_log)
                 if saved_path:
-                    logging.info(f'Save the best checkpoint to {saved_path} ({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                    logging.info(f'Save the best checkpoint to {saved_path} '
+                                 f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
                     self.save(saved_path)
                 else:
-                    logging.info(f'The best checkpoint is remained (at epoch {self.epoch - self.monitor.not_improved_count * self.valid_freq}, {self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                    epoch = self.epoch - self.monitor.not_improved_count * self.valid_freq
+                    logging.info(f'The best checkpoint is remained at epoch {epoch} '
+                                 f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
 
                 # Early stop.
                 if self.monitor.is_early_stopped():
                     logging.info('Early stopped.')
                     break
 
-            self.epoch +=1
+            self.epoch += 1
 
         self.logger.close()
 
     def _run_epoch(self, mode):
         """Run an epoch for training.
         Args:
-            mode (str): The mode of running an epoch ('training' or 'validation').
+            mode (str): The mode of running an epoch ('train' or 'valid').
 
         Returns:
             log (dict): The log information.
             batch (dict or sequence): The last batch of the data.
             outputs (torch.Tensor or sequence of torch.Tensor): The corresponding model outputs.
         """
-        if mode == 'training':
+        if mode == 'train':
             self.net.train()
+            dataloader = self.train_dataloader
         else:
             self.net.eval()
-        dataloader = self.train_dataloader if mode == 'training' else self.valid_dataloader
-        trange = tqdm(enumerate(dataloader),
-                      total=len(dataloader),
-                      desc=mode)
+            dataloader = self.valid_dataloader
+        trange = enumerate(tqdm(dataloader, total=len(dataloader), desc=mode))
 
-        log = self._init_log()
-        count = 0
+        epoch_log = EpochLog()
         for i, batch in trange:
-            batch = self._allocate_data(batch)
-            inputs, targets = self._get_inputs_targets(batch)
-            if mode == 'training':
-                outputs = self.net(inputs)
-                losses = self._compute_losses(outputs, targets)
-                loss = (torch.stack(losses) * self.loss_weights).sum()
+            if mode == 'train':
+                train_dict = self._train_step(batch)
+                losses = train_dict['losses']
+                _, _losses = zip(*sorted(losses.items()))
+                loss = (torch.stack(_losses) * self.loss_weights).sum()
+                metrics = train_dict.get('metrics')
+                outputs = train_dict.get('outputs')
                 if APEX_AVAILABLE:
                     with amp.scale_loss(loss, self.optimizer) as scaled_loss:
                         scaled_loss /= dataloader.grad_accumulation_steps(i)
@@ -141,101 +150,47 @@ class BaseTrainer:
                         self.lr_scheduler.step()
                     elif isinstance(self.lr_scheduler, CosineAnnealingWarmRestarts):
                         self.lr_scheduler.step((self.epoch - 1) + i / len(dataloader))
-                with torch.no_grad():
-                    metrics = self._compute_metrics(outputs, targets)
             else:
                 with torch.no_grad():
-                    outputs = self.net(inputs)
-                    losses = self._compute_losses(outputs, targets)
-                    loss = (torch.stack(losses) * self.loss_weights).sum()
-                    metrics =  self._compute_metrics(outputs, targets)
+                    valid_dict = self._valid_step(batch)
+                    losses = valid_dict['losses']
+                    _, _losses = zip(*sorted(losses.items()))
+                    loss = (torch.stack(_losses) * self.loss_weights).sum()
+                    metrics = valid_dict.get('metrics')
+                    outputs = valid_dict.get('outputs')
+            if (i + 1) == len(dataloader) and not dataloader.drop_last:
+                batch_size = len(dataloader.dataset) % dataloader.batch_size
+            else:
+                batch_size = dataloader.batch_size
+            epoch_log.update(loss, losses, metrics, batch_size)
+            trange.set_postfix(**epoch_log.on_step_end_log)
+        return epoch_log.on_epoch_end_log, batch, outputs
 
-            batch_size = self.train_dataloader.batch_size if mode == 'training' else self.valid_dataloader.batch_size
-            self._update_log(log, batch_size, loss, losses, metrics)
-            count += batch_size
-            trange.set_postfix(**dict((key, f'{value / count: .3f}') for key, value in log.items()))
-
-        for key in log:
-            log[key] /= count
-        return log, batch, outputs
-
-    def _allocate_data(self, batch):
-        """Allocate the data to the device.
+    def _train_step(self, batch):
+        """The user-defined training logic.
         Args:
             batch (dict or sequence): A batch of the data.
 
         Returns:
-            batch (dict or sequence): A batch of the allocated data.
-        """
-        if isinstance(batch, dict):
-            return dict((key, self._allocate_data(data)) for key, data in batch.items())
-        elif isinstance(batch, list):
-            return list(self._allocate_data(data) for data in batch)
-        elif isinstance(batch, tuple):
-            return tuple(self._allocate_data(data) for data in batch)
-        elif isinstance(batch, torch.Tensor):
-            return batch.to(self.device)
-
-    def _get_inputs_targets(self, batch):
-        """Specify the data inputs and targets.
-        Args:
-            batch (dict or sequence): A batch of data.
-
-        Returns:
-            inputs (torch.Tensor or sequence of torch.Tensor): The data inputs.
-            targets (torch.Tensor or sequence of torch.Tensor): The data targets.
+            train_dict (dict): The computed results.
+                train_dict['losses'] (dict)
+                train_dict['metrics'] (dict, optional)
+                train_dict['outputs'] (dict, optional)
         """
         raise NotImplementedError
 
-    def _compute_losses(self, outputs, targets):
-        """Compute the losses.
+    def _valid_step(self, batch):
+        """The user-defined training logic.
         Args:
-            outputs (torch.Tensor or sequence of torch.Tensor): The model outputs.
-            targets (torch.Tensor or sequence of torch.Tensor): The data targets.
+            batch (dict or sequence): A batch of the data.
 
         Returns:
-            losses (sequence of torch.Tensor): The computed losses.
+            valid_dict (dict): The computed results.
+                valid_dict['losses'] (dict)
+                valid_dict['metrics'] (dict, optional)
+                valid_dict['outputs'] (dict, optional)
         """
         raise NotImplementedError
-
-    def _compute_metrics(self, outputs, targets):
-        """Compute the metrics.
-        Args:
-            outputs (torch.Tensor or sequence of torch.Tensor): The model outputs.
-            targets (torch.Tensor or sequence of torch.Tensor): The data targets.
-
-        Returns:
-            metrics (sequence of torch.Tensor): The computed metrics.
-        """
-        raise NotImplementedError
-
-    def _init_log(self):
-        """Initialize the log.
-        Returns:
-            log (dict): The initialized log.
-        """
-        log = {}
-        log['Loss'] = 0
-        for loss_fn in self.loss_fns:
-            log[loss_fn.__class__.__name__] = 0
-        for metric_fn in self.metric_fns:
-            log[metric_fn.__class__.__name__] = 0
-        return log
-
-    def _update_log(self, log, batch_size, loss, losses, metrics):
-        """Update the log.
-        Args:
-            log (dict): The log to be updated.
-            batch_size (int): The batch size.
-            loss (torch.Tensor): The weighted sum of the computed losses.
-            losses (sequence of torch.Tensor): The computed losses.
-            metrics (sequence of torch.Tensor): The computed metrics.
-        """
-        log['Loss'] += loss.item() * batch_size
-        for loss_fn, loss in zip(self.loss_fns, losses):
-            log[loss_fn.__class__.__name__] += loss.item() * batch_size
-        for metric_fn, metric in zip(self.metric_fns, metrics):
-            log[metric_fn.__class__.__name__] += metric.item() * batch_size
 
     def save(self, path):
         """Save the model checkpoint.
@@ -267,3 +222,52 @@ class BaseTrainer:
         random.setstate(checkpoint['random_state'])
         if checkpoint['amp'] is not None:
             amp.load_state_dict(checkpoint['amp'])
+
+
+class EpochLog:
+    """The log to record the information of an epoch.
+    """
+
+    def __init__(self):
+        self.log = None
+        self.count = 0
+
+    def _init_log(self, losses, metrics):
+        """Initilize the log.
+        Args:
+            losses (dict): The computed losses.
+            metrics (dict or None): The computed metrics.
+        """
+        self.log = {}
+        self.log['loss'] = 0
+        for loss_name in losses.keys():
+            self.log[loss_name] = 0
+        if metrics is not None:
+            for metric_name in metrics.keys():
+                self.log[metric_name] = 0
+
+    def update(self, loss, losses, metrics, batch_size):
+        """Accumulate the computed losses and metrics.
+        Args:
+            loss (torch.Tensor): The weighted sum of the computed losses.
+            losses (dict): The computed losses.
+            metrics (dict or None): The computed metrics.
+            batch_size (int): The batch size.
+        """
+        if self.log is None:
+            self._init_log(losses, metrics)
+        self.log['loss'] += loss.item() * batch_size
+        for loss_name, loss in losses.items():
+            self.log[loss_name] += loss.item() * batch_size
+        if metrics is not None:
+            for metric_name, metric in metrics.items():
+                self.log[metric_name] += metric.item() * batch_size
+        self.count += batch_size
+
+    @property
+    def on_step_end_log(self):
+        return dict((key, f'{value / self.count: .3f}') for key, value in self.log.items())
+
+    @property
+    def on_epoch_end_log(self):
+        return dict((key, value / self.count) for key, value in self.log.items())

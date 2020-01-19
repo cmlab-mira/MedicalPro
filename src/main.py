@@ -40,10 +40,9 @@ def main(args):
         device = torch.device(config.trainer.kwargs.device)
 
         logging.info('Create the training and validation datasets.')
-        data_dir = Path(config.dataset.kwargs.data_dir)
-        config.dataset.kwargs.update(data_dir=data_dir, type_='train')
+        config.dataset.kwargs.update(type_='train')
         train_dataset = _get_instance(src.data.datasets, config.dataset)
-        config.dataset.kwargs.update(data_dir=data_dir, type_='valid')
+        config.dataset.kwargs.update(type_='valid')
         valid_dataset = _get_instance(src.data.datasets, config.dataset)
 
         logging.info('Create the training and validation dataloaders.')
@@ -90,9 +89,12 @@ def main(args):
             lr_scheduler = _get_instance(torch.optim.lr_scheduler, config.lr_scheduler, optimizer)
 
         logging.info('Create the logger.')
+        dummpy_input = config.logger.kwargs.get('dummy_input')
+        if dummpy_input is not None:
+            dummpy_input = torch.randn(tuple(dummpy_input))
         config.logger.kwargs.update(log_dir=saved_dir / 'log',
                                     net=net,
-                                    dummy_input=torch.randn(tuple(config.logger.kwargs.dummy_input)))
+                                    dummy_input=dummpy_input)
         logger = _get_instance(src.callbacks.loggers, config.logger)
 
         logging.info('Create the monitor.')
@@ -132,8 +134,7 @@ def main(args):
         device = torch.device(config.predictor.kwargs.device)
 
         logging.info('Create the testing dataset.')
-        data_dir = Path(config.dataset.kwargs.data_dir)
-        config.dataset.kwargs.update(data_dir=data_dir, type_='test')
+        config.dataset.kwargs.update(type_='test')
         test_dataset = _get_instance(src.data.datasets, config.dataset)
 
         logging.info('Create the testing dataloader.')

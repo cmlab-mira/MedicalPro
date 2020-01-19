@@ -141,8 +141,7 @@ class BaseTrainer:
                         scaled_loss /= dataloader.grad_accumulation_steps(i)
                         scaled_loss.backward()
                 else:
-                    loss /= dataloader.grad_accumulation_steps(i)
-                    loss.backward()
+                    (loss / dataloader.grad_accumulation_steps(i)).backward()
                 if (i + 1) % dataloader.grad_accumulation_steps() == 0 or (i + 1) == len(dataloader):
                     self.optimizer.step()
                     self.optimizer.zero_grad()
@@ -162,7 +161,7 @@ class BaseTrainer:
                 batch_size = len(dataloader.dataset) % dataloader.batch_size
             else:
                 batch_size = dataloader.batch_size
-            epoch_log.update(loss, losses, metrics, batch_size)
+            epoch_log.update(batch_size, loss, losses, metrics)
             trange.set_postfix(**epoch_log.on_step_end_log)
         return epoch_log.on_epoch_end_log, batch, outputs
 
@@ -180,7 +179,7 @@ class BaseTrainer:
         raise NotImplementedError
 
     def _valid_step(self, batch):
-        """The user-defined training logic.
+        """The user-defined validation logic.
         Args:
             batch (dict or sequence): A batch of the data.
 
@@ -229,14 +228,14 @@ class EpochLog:
     """
 
     def __init__(self):
-        self.log = None
         self.count = 0
+        self.log = None
 
-    def _init_log(self, losses, metrics):
+    def _init_log(self, losses, metrics=None):
         """Initilize the log.
         Args:
             losses (dict): The computed losses.
-            metrics (dict or None): The computed metrics.
+            metrics (dict): The computed metrics.
         """
         self.log = {}
         self.log['loss'] = 0
@@ -246,14 +245,15 @@ class EpochLog:
             for metric_name in metrics.keys():
                 self.log[metric_name] = 0
 
-    def update(self, loss, losses, metrics, batch_size):
+    def update(self, batch_size, loss, losses, metrics=None):
         """Accumulate the computed losses and metrics.
         Args:
             loss (torch.Tensor): The weighted sum of the computed losses.
             losses (dict): The computed losses.
-            metrics (dict or None): The computed metrics.
+            metrics (dict): The computed metrics.
             batch_size (int): The batch size.
         """
+        self.count += batch_size
         if self.log is None:
             self._init_log(losses, metrics)
         self.log['loss'] += loss.item() * batch_size
@@ -262,7 +262,6 @@ class EpochLog:
         if metrics is not None:
             for metric_name, metric in metrics.items():
                 self.log[metric_name] += metric.item() * batch_size
-        self.count += batch_size
 
     @property
     def on_step_end_log(self):

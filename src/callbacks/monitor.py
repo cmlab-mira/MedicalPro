@@ -1,7 +1,5 @@
 import math
 
-__all__ = ['Monitor']
-
 
 class Monitor:
     """The class to monitor the training process and save the model checkpoints.

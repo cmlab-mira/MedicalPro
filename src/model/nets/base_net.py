@@ -1,7 +1,5 @@
 import torch.nn as nn
 
-__all__ = ['BaseNet']
-
 
 class BaseNet(nn.Module):
     """The base class for all nets.

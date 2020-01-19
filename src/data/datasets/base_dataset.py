@@ -1,7 +1,5 @@
 from torch.utils.data import Dataset
 
-__all__ = ['BaseDataset']
-
 
 class BaseDataset(Dataset):
     """The base class for all datasets.

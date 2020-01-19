@@ -1,7 +1,5 @@
 from torch.utils.tensorboard import SummaryWriter
 
-__all__ = ['BaseLogger']
-
 
 class BaseLogger:
     """The base class for all loggers.

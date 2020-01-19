@@ -12,8 +12,6 @@ except ImportError:
     APEX_AVAILABLE = False
     logging.warning(f'The apex.amp is not available!')
 
-__all__ = ['BaseTrainer']
-
 
 class BaseTrainer:
     """The base class for all trainers.

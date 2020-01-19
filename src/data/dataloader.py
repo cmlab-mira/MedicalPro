@@ -1,8 +1,6 @@
 import numpy as np
 from torch.utils.data import DataLoader
 
-__all__ = ['Dataloader']
-
 
 class Dataloader(DataLoader):
     """The modified class of torch.utils.data.DataLoader.

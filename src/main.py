@@ -64,9 +64,9 @@ def main(args):
         for config_loss in sorted(config.losses,
                                   key=lambda config_loss: _snake_case(config_loss.get('alias', config_loss.name))):
             if config_loss.name in defaulted_loss_fns:
-                loss_fn = _get_instance(torch.nn, config_loss)
+                loss_fn = _get_instance(torch.nn, config_loss).to(device)
             else:
-                loss_fn = _get_instance(src.model.losses, config_loss)
+                loss_fn = _get_instance(src.model.losses, config_loss).to(device)
             loss_weight = config_loss.get('weight', 1 / len(config.losses))
             name = _snake_case(config_loss.get('alias', config_loss.name))
             setattr(loss_fns, name, loss_fn)
@@ -76,7 +76,7 @@ def main(args):
         logging.info('Create the metric functions.')
         metric_fns = MetricFns()
         for config_metric in config.metrics:
-            metric_fn = _get_instance(src.model.metrics, config_metric)
+            metric_fn = _get_instance(src.model.metrics, config_metric).to(device)
             name = _snake_case(config_metric.get('alias', config_metric.name))
             setattr(metric_fns, name, metric_fn)
 
@@ -89,12 +89,8 @@ def main(args):
             lr_scheduler = _get_instance(torch.optim.lr_scheduler, config.lr_scheduler, optimizer)
 
         logging.info('Create the logger.')
-        dummpy_input = config.logger.kwargs.get('dummy_input')
-        if dummpy_input is not None:
-            dummpy_input = torch.randn(tuple(dummpy_input))
         config.logger.kwargs.update(log_dir=saved_dir / 'log',
-                                    net=net,
-                                    dummy_input=dummpy_input)
+                                    net=net)
         logger = _get_instance(src.callbacks.loggers, config.logger)
 
         logging.info('Create the monitor.')
@@ -149,9 +145,9 @@ def main(args):
         for config_loss in sorted(config.losses,
                                   key=lambda config_loss: _snake_case(config_loss.get('alias', config_loss.name))):
             if config_loss.name in defaulted_loss_fns:
-                loss_fn = _get_instance(torch.nn, config_loss)
+                loss_fn = _get_instance(torch.nn, config_loss).to(device)
             else:
-                loss_fn = _get_instance(src.model.losses, config_loss)
+                loss_fn = _get_instance(src.model.losses, config_loss).to(device)
             loss_weight = config_loss.get('weight', 1 / len(config.losses))
             loss_name = _snake_case(config_loss.get('alias', config_loss.name))
             setattr(loss_fns, loss_name, loss_fn)
@@ -161,7 +157,7 @@ def main(args):
         logging.info('Create the metric functions.')
         metric_fns = MetricFns()
         for config_metric in config.metrics:
-            metric_fn = _get_instance(src.model.metrics, config_metric)
+            metric_fn = _get_instance(src.model.metrics, config_metric).to(device)
             metric_name = _snake_case(config_metric.get('alias', config_metric.name))
             setattr(metric_fns, metric_name, metric_fn)
 
@@ -229,6 +225,7 @@ def _get_instance(module, config, *args):
 
 def _snake_case(string):
     """Convert a string into snake case form.
+    Ref: https://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case
     """
     return re.sub('((?<=[a-z0-9])[A-Z]|(?!^)(?<!_)[A-Z](?=[a-z]))', r'_\1', string).lower()
 

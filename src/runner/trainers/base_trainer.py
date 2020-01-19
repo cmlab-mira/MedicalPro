@@ -46,7 +46,7 @@ class BaseTrainer:
         self.optimizer = optimizer
         if APEX_AVAILABLE:
             self.net, self.optimizer = amp.initialize(self.net, self.optimizer, opt_level=opt_level)
-        if isinstance(self.lr_scheduler, ReduceLROnPlateau):
+        if isinstance(lr_scheduler, ReduceLROnPlateau):
             raise ValueError(f'Do not support {ReduceLROnPlateau} scheduler yet.')
         self.lr_scheduler = lr_scheduler
         self.logger = logger
@@ -123,10 +123,10 @@ class BaseTrainer:
         else:
             self.net.eval()
             dataloader = self.valid_dataloader
-        trange = enumerate(tqdm(dataloader, total=len(dataloader), desc=mode))
+        trange = tqdm(dataloader, total=len(dataloader), desc=mode)
 
         epoch_log = EpochLog()
-        for i, batch in trange:
+        for i, batch in enumerate(trange):
             if mode == 'train':
                 train_dict = self._train_step(batch)
                 losses = train_dict['losses']

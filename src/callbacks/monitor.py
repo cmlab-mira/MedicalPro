@@ -5,14 +5,14 @@ class Monitor:
     """The class to monitor the training process and save the model checkpoints.
     Args:
         checkpoints_dir (Path): The root directory of the saved model checkpoints.
-        mode (str): The mode of the monitor ('max' or 'min').
-        target (str): The target of the monitor ('loss', 'my_loss' or 'my_metric').
-        saved_freq (int): The saved frequency.
+        mode (str): The mode of the monitor ('max' or 'min') (default: 'min').
+        target (str): The target of the monitor ('loss', 'my_loss' or 'my_metric') (default: 'loss').
+        saved_freq (int): The saved frequency (default: 1).
         early_stop (int): The number of times to early stop the training if monitor target is not improved
             (default: 0, do not early stop the training). Notice that the unit is validation times, not epoch.
     """
 
-    def __init__(self, checkpoints_dir, mode, target, saved_freq, early_stop=0):
+    def __init__(self, checkpoints_dir, mode='min', target='loss', saved_freq=1, early_stop=0):
         self.checkpoints_dir = checkpoints_dir
         if mode not in ['min', 'max']:
             raise ValueError(f"The mode should be 'min' or 'max'. Got {mode}.")

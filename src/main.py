@@ -40,19 +40,26 @@ def main(args):
         device = torch.device(config.trainer.kwargs.device)
 
         logging.info('Create the training and validation datasets.')
-        config.dataset.kwargs.update(type_='train')
+        config.dataset.setdefault('kwargs', {}).update(type_='train')
         train_dataset = _get_instance(src.data.datasets, config.dataset)
-        config.dataset.kwargs.update(type_='valid')
+        config.dataset.setdefault('kwargs', {}).update(type_='valid')
         valid_dataset = _get_instance(src.data.datasets, config.dataset)
 
         logging.info('Create the training and validation dataloaders.')
         cls = getattr(src.data.datasets, config.dataset.name)
         collate_fn = getattr(cls, 'collate_fn', None)
-        train_batch_size = config.dataloader.kwargs.pop('train_batch_size')
-        valid_batch_size = config.dataloader.kwargs.pop('valid_batch_size')
-        config.dataloader.kwargs.update(collate_fn=collate_fn, batch_size=train_batch_size)
+        config.dataloader.setdefault('kwargs', {}).update(collate_fn=collate_fn)
+        train_kwargs, valid_kwargs = {}, {}
+        for key in list(config.dataloader.kwargs.keys()):
+            if key.startswith('train_'):
+                value = config.dataloader.kwargs.pop(key)
+                train_kwargs.update({key.replace('train_', ''): value})
+            elif key.startswith('valid_'):
+                value = config.dataloader.kwargs.pop(key)
+                valid_kwargs.update({key.replace('valid_', ''): value})
+        config.dataloader.kwargs.update(train_kwargs)
         train_dataloader = _get_instance(src.data.dataloader, config.dataloader, train_dataset)
-        config.dataloader.kwargs.update(batch_size=valid_batch_size)
+        config.dataloader.kwargs.update(valid_kwargs)
         valid_dataloader = _get_instance(src.data.dataloader, config.dataloader, valid_dataset)
 
         logging.info('Create the network architecture.')
@@ -84,17 +91,16 @@ def main(args):
         optimizer = _get_instance(torch.optim, config.optimizer, net.parameters())
 
         logging.info('Create the learning rate scheduler.')
-        lr_scheduler = config.get('lr_scheduler')
-        if lr_scheduler is not None:
+        if 'lr_scheduler' in config:
             lr_scheduler = _get_instance(torch.optim.lr_scheduler, config.lr_scheduler, optimizer)
 
         logging.info('Create the logger.')
-        config.logger.kwargs.update(log_dir=saved_dir / 'log',
-                                    net=net)
+        config.logger.setdefault('kwargs', {}).update(log_dir=saved_dir / 'log',
+                                                      net=net)
         logger = _get_instance(src.callbacks.loggers, config.logger)
 
         logging.info('Create the monitor.')
-        config.monitor.kwargs.update(checkpoints_dir=saved_dir / 'checkpoints')
+        config.monitor.setdefault('kwargs', {}).update(checkpoints_dir=saved_dir / 'checkpoints')
         monitor = _get_instance(src.callbacks.monitor, config.monitor)
 
         logging.info('Create the trainer.')
@@ -130,10 +136,13 @@ def main(args):
         device = torch.device(config.predictor.kwargs.device)
 
         logging.info('Create the testing dataset.')
-        config.dataset.kwargs.update(type_='test')
+        config.dataset.setdefault('kwargs', {}).update(type_='test')
         test_dataset = _get_instance(src.data.datasets, config.dataset)
 
         logging.info('Create the testing dataloader.')
+        cls = getattr(src.data.datasets, config.dataset.name)
+        collate_fn = getattr(cls, 'collate_fn', None)
+        config.dataloader.setdefault('kwargs', {}).update(collate_fn=collate_fn)
         test_dataloader = _get_instance(src.data.dataloader, config.dataloader, test_dataset)
 
         logging.info('Create the network architecture.')
@@ -219,8 +228,7 @@ def _get_instance(module, config, *args):
         instance (object): The class object defined in the module.
     """
     cls = getattr(module, config.name)
-    kwargs = config.get('kwargs')
-    return cls(*args) if kwargs is None else cls(*args, **config.kwargs)
+    return cls(*args, **config.get('kwargs', {}))
 
 
 def _snake_case(string):

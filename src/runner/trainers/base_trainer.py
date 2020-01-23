@@ -1,3 +1,4 @@
+import importlib
 import logging
 import random
 import torch
@@ -5,12 +6,6 @@ from torch.optim.lr_scheduler import (
     CyclicLR, OneCycleLR, CosineAnnealingWarmRestarts, ReduceLROnPlateau
 )
 from tqdm import tqdm
-try:
-    from apex import amp
-    APEX_AVAILABLE = True
-except ImportError:
-    APEX_AVAILABLE = False
-    logging.warning(f'The apex.amp is not available!')
 
 
 class BaseTrainer:
@@ -29,13 +24,14 @@ class BaseTrainer:
         monitor (Monitor): The object to determine whether to save the checkpoint.
         num_epochs (int): The total number of training epochs.
         valid_freq (int): The validation frequency (default: 1).
-        opt_level (str): The optimization level of apex.amp (default: 'O0').
+        use_amp (bool): Whether to use the Automatic Mixed Precision training (default: False).
+        opt_level (str): The optimization level of apex.amp (default: 'O1').
     """
 
     def __init__(self, device, train_dataloader, valid_dataloader,
                  net, loss_fns, loss_weights, metric_fns, optimizer,
                  lr_scheduler, logger, monitor, num_epochs,
-                 valid_freq=1, opt_level='O0'):
+                 valid_freq=1, use_amp=False, opt_level='O1'):
         self.device = device
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
@@ -44,8 +40,6 @@ class BaseTrainer:
         self.loss_weights = loss_weights
         self.metric_fns = metric_fns
         self.optimizer = optimizer
-        if APEX_AVAILABLE:
-            self.net, self.optimizer = amp.initialize(self.net, self.optimizer, opt_level=opt_level)
         if isinstance(lr_scheduler, ReduceLROnPlateau):
             raise ValueError(f'Do not support {ReduceLROnPlateau} scheduler yet.')
         self.lr_scheduler = lr_scheduler
@@ -53,7 +47,13 @@ class BaseTrainer:
         self.monitor = monitor
         self.num_epochs = num_epochs
         self.valid_freq = valid_freq
+        self.use_amp = use_amp
         self.epoch = 1
+
+        if use_amp:
+            global amp
+            amp = importlib.import_module('apex.amp')
+            self.net, self.optimizer = amp.initialize(self.net, self.optimizer, opt_level=opt_level)
 
     def train(self):
         """The training process.
@@ -134,7 +134,7 @@ class BaseTrainer:
                 loss = (torch.stack(_losses) * self.loss_weights).sum()
                 metrics = train_dict.get('metrics')
                 outputs = train_dict.get('outputs')
-                if APEX_AVAILABLE:
+                if self.use_amp:
                     with amp.scale_loss(loss, self.optimizer) as scaled_loss:
                         scaled_loss /= dataloader.grad_accumulation_steps(i)
                         scaled_loss.backward()
@@ -201,7 +201,7 @@ class BaseTrainer:
             'monitor': self.monitor.state_dict(),
             'epoch': self.epoch,
             'random_state': random.getstate(),
-            'amp': amp.state_dict() if APEX_AVAILABLE else None
+            'amp': amp.state_dict() if self.use_amp else None
         }, path)
 
     def load(self, path):

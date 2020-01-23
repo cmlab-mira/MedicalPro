@@ -22,6 +22,17 @@ def main(args):
         yaml.dump(config.to_dict(), f, default_flow_style=False)
 
     if not args.test:
+        if config.trainer.kwargs.get('use_amp', False):
+            try:
+                from apex import amp  # noqa
+            except ImportError:
+                logging.error('The AMP training is not available. Please set the use_amp to false.')
+                raise
+            else:
+                logging.info('Using the AMP training.')
+        else:
+            logging.info('Not using the AMP training.')
+
         random_seed = config.main.get('random_seed')
         if random_seed is None:
             torch.backends.cudnn.deterministic = False

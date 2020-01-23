@@ -50,9 +50,9 @@ class BaseLogger:
                 self.writer.add_scalars(key, {'train': train_log[key]}, epoch)
         else:
             for key in (set(train_log.keys()) | set(valid_log.keys())):
-                self.writer.add_scalars(key,
-                                        {'train': train_log.get(key), 'valid': valid_log.get(key)},
-                                        epoch)
+                scalars = {'train': train_log.get(key), 'valid': valid_log.get(key)}
+                scalars = {key: value for key, value in scalars.items() if value is not None}
+                self.writer.add_scalars(key, scalars, epoch)
 
     def _add_images(self, epoch, train_batch, train_outputs, valid_batch, valid_outputs):
         """Plot the visualization results.

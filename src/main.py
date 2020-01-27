@@ -104,6 +104,8 @@ def main(args):
         logging.info('Create the learning rate scheduler.')
         if 'lr_scheduler' in config:
             lr_scheduler = _get_instance(torch.optim.lr_scheduler, config.lr_scheduler, optimizer)
+        else:
+            lr_scheduler = None
 
         logging.info('Create the logger.')
         config.logger.setdefault('kwargs', {}).update(log_dir=saved_dir / 'log',

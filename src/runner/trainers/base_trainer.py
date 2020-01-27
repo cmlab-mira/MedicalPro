@@ -80,12 +80,6 @@ class BaseTrainer:
             self.logger.write(self.epoch, train_log, train_batch, train_outputs,
                               valid_log, valid_batch, valid_outputs)
 
-            # Save the regular checkpoint.
-            saved_path = self.monitor.is_saved(self.epoch)
-            if saved_path:
-                logging.info(f'Save the checkpoint to {saved_path}.')
-                self.save(saved_path)
-
             if self.epoch % self.valid_freq == 0:
                 # Save the best checkpoint.
                 saved_path = self.monitor.is_best(valid_log)
@@ -98,10 +92,22 @@ class BaseTrainer:
                     logging.info(f'The best checkpoint is remained at epoch {epoch} '
                                  f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
 
+                # Save the regular checkpoint.
+                saved_path = self.monitor.is_saved(self.epoch)
+                if saved_path:
+                    logging.info(f'Save the checkpoint to {saved_path}.')
+                    self.save(saved_path)
+
                 # Early stop.
                 if self.monitor.is_early_stopped():
                     logging.info('Early stopped.')
                     break
+            else:
+                # Save the regular checkpoint.
+                saved_path = self.monitor.is_saved(self.epoch)
+                if saved_path:
+                    logging.info(f'Save the checkpoint to {saved_path}.')
+                    self.save(saved_path)
 
             self.epoch += 1
 
@@ -198,10 +204,12 @@ class BaseTrainer:
             'net': self.net.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None,
+            'amp': amp.state_dict() if self.use_amp else None,
             'monitor': self.monitor.state_dict(),
             'epoch': self.epoch,
             'random_state': random.getstate(),
-            'amp': amp.state_dict() if self.use_amp else None
+            'torch_random_state': torch.get_rng_state(),
+            'torch_cuda_random_state': torch.cuda.get_rng_state_all()
         }, path)
 
     def load(self, path):
@@ -209,16 +217,18 @@ class BaseTrainer:
         Args:
             path (Path): The path to load the model checkpoint.
         """
-        checkpoint = torch.load(path, map_location=self.device)
+        checkpoint = torch.load(path, map_location='cpu')
         self.net.load_state_dict(checkpoint['net'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
         if checkpoint['lr_scheduler'] is not None:
             self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+        if checkpoint['amp'] is not None:
+            amp.load_state_dict(checkpoint['amp'])
         self.monitor.load_state_dict(checkpoint['monitor'])
         self.epoch = checkpoint['epoch'] + 1
         random.setstate(checkpoint['random_state'])
-        if checkpoint['amp'] is not None:
-            amp.load_state_dict(checkpoint['amp'])
+        torch.set_rng_state(checkpoint['torch_random_state'])
+        torch.cuda.set_rng_state_all(checkpoint['torch_cuda_random_state'])
 
 
 class EpochLog:

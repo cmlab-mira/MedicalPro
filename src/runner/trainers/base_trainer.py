@@ -7,6 +7,8 @@ from torch.optim.lr_scheduler import (
 )
 from tqdm import tqdm
 
+LOGGER = logging.getLogger(__name__.split('.')[-1])
+
 
 class BaseTrainer:
     """The base class for all trainers.
@@ -60,13 +62,12 @@ class BaseTrainer:
         """
         while self.epoch <= self.num_epochs:
             # Do training and validation.
-            print()
-            logging.info(f'Epoch {self.epoch}.')
+            LOGGER.info(f'Epoch {self.epoch}.')
             train_log, train_batch, train_outputs = self._run_epoch('train')
-            logging.info(f'Train log: {train_log}.')
+            LOGGER.info(f'Train log: {train_log}.')
             if self.epoch % self.valid_freq == 0:
                 valid_log, valid_batch, valid_outputs = self._run_epoch('valid')
-                logging.info(f'Valid log: {valid_log}.')
+                LOGGER.info(f'Valid log: {valid_log}.')
             else:
                 valid_log, valid_batch, valid_outputs = None, None, None
 
@@ -84,29 +85,29 @@ class BaseTrainer:
                 # Save the best checkpoint.
                 saved_path = self.monitor.is_best(valid_log)
                 if saved_path:
-                    logging.info(f'Save the best checkpoint to {saved_path} '
-                                 f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                    LOGGER.info(f'Save the best checkpoint to {saved_path} '
+                                f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
                     self.save(saved_path)
                 else:
                     epoch = self.epoch - self.monitor.not_improved_count * self.valid_freq
-                    logging.info(f'The best checkpoint is remained at epoch {epoch} '
-                                 f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                    LOGGER.info(f'The best checkpoint is remained at epoch {epoch} '
+                                f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
 
                 # Save the regular checkpoint.
                 saved_path = self.monitor.is_saved(self.epoch)
                 if saved_path:
-                    logging.info(f'Save the checkpoint to {saved_path}.')
+                    LOGGER.info(f'Save the checkpoint to {saved_path}.')
                     self.save(saved_path)
 
                 # Early stop.
                 if self.monitor.is_early_stopped():
-                    logging.info('Early stopped.')
+                    LOGGER.info('Early stopped.')
                     break
             else:
                 # Save the regular checkpoint.
                 saved_path = self.monitor.is_saved(self.epoch)
                 if saved_path:
-                    logging.info(f'Save the checkpoint to {saved_path}.')
+                    LOGGER.info(f'Save the checkpoint to {saved_path}.')
                     self.save(saved_path)
 
             self.epoch += 1
@@ -203,7 +204,7 @@ class BaseTrainer:
         torch.save({
             'net': self.net.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler else None,
+            'lr_scheduler': self.lr_scheduler.state_dict() if self.lr_scheduler is not None else None,
             'amp': amp.state_dict() if self.use_amp else None,
             'monitor': self.monitor.state_dict(),
             'epoch': self.epoch,
@@ -220,10 +221,21 @@ class BaseTrainer:
         checkpoint = torch.load(path, map_location='cpu')
         self.net.load_state_dict(checkpoint['net'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
-        if checkpoint['lr_scheduler'] is not None:
+
+        if self.lr_scheduler is not None and checkpoint['lr_scheduler'] is not None:
             self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-        if checkpoint['amp'] is not None:
+        elif self.lr_scheduler is None and checkpoint['lr_scheduler'] is not None:
+            LOGGER.warning('The learning rate scheduler is no longer in use.')
+        elif self.lr_scheduler is not None and checkpoint['lr_scheduler'] is None:
+            LOGGER.warning('Start using the learning rate scheduler.')
+
+        if self.use_amp and checkpoint['amp'] is not None:
             amp.load_state_dict(checkpoint['amp'])
+        elif not self.use_amp and checkpoint['amp'] is not None:
+            LOGGER.warning('The AMP training is no longer in use.')
+        elif self.use_amp and checkpoint['amp'] is None:
+            LOGGER.warning('Start using the AMP training.')
+
         self.monitor.load_state_dict(checkpoint['monitor'])
         self.epoch = checkpoint['epoch'] + 1
         random.setstate(checkpoint['random_state'])

@@ -78,6 +78,7 @@ def main(args):
 
         logging.info('Create the network architecture.')
         net = _get_instance(src.model.nets, config.net).to(device)
+        print(net)
 
         logging.info('Create the loss functions and corresponding weights.')
         loss_fns, loss_weights = LossFns(), []
@@ -103,11 +104,14 @@ def main(args):
 
         logging.info('Create the optimizer.')
         optimizer = _get_instance(torch.optim, config.optimizer, net.parameters())
+        print(optimizer)
 
-        logging.info('Create the learning rate scheduler.')
         if 'lr_scheduler' in config:
+            logging.info('Create the learning rate scheduler.')
             lr_scheduler = _get_instance(torch.optim.lr_scheduler, config.lr_scheduler, optimizer)
+            print(lr_scheduler)
         else:
+            logging.info('Not using the learning rate scheduler.')
             lr_scheduler = None
 
         logging.info('Create the logger.')
@@ -261,7 +265,7 @@ def _snake_case(string):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s',
+    logging.basicConfig(format='%(asctime)s | %(name)-16s | %(levelname)-8s | %(message)s',
                         level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
     args = _parse_args()
     main(args)

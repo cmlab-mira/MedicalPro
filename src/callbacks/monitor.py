@@ -1,4 +1,8 @@
+import logging
 import math
+import sys
+
+LOGGER = logging.getLogger(__name__.split('.')[-1])
 
 
 class Monitor:
@@ -67,7 +71,6 @@ class Monitor:
 
     def state_dict(self):
         return {
-            'checkpoints_dir': self.checkpoints_dir,
             'mode': self.mode,
             'target': self.target,
             'saved_freq': self.saved_freq,
@@ -77,10 +80,19 @@ class Monitor:
         }
 
     def load_state_dict(self, state_dict):
-        self.checkpoints_dir = state_dict['checkpoints_dir']
-        self.mode = state_dict['mode']
-        self.target = state_dict['target']
-        self.saved_freq = state_dict['saved_freq']
-        self.early_stop = state_dict['early_stop']
-        self.best = state_dict['best']
-        self.not_improved_count = state_dict['not_improved_count']
+        if self.mode == state_dict['mode'] and self.target == state_dict['target']:
+            self.best = state_dict['best']
+            self.not_improved_count = state_dict['not_improved_count']
+        else:
+            LOGGER.warning(f"The mode and target are changed from "
+                           f"{state_dict['mode']} {state_dict['target']} to {self.mode} {self.target}.")
+
+        if self.saved_freq != state_dict['saved_freq']:
+            LOGGER.warning(f"The saved_freq is changed from {state_dict['saved_freq']} to {self.saved_freq}.")
+
+        if self.early_stop != state_dict['early_stop']:
+            LOGGER.warning(f"The early_stop is changed from {state_dict['early_stop']} to {self.early_stop}.")
+
+        if self.not_improved_count >= self.early_stop:
+            LOGGER.critical(f"Load the checkpoint that should have to be early stopped.")
+            sys.exit()

@@ -25,6 +25,10 @@ class Dataloader(DataLoader):
                          worker_init_fn=worker_init_fn)
 
         if dataset.type == 'train':
+            if self.drop_last and grad_accumulation_steps > len(self._index_sampler):
+                raise ValueError(f'The grad_accumulation_steps {grad_accumulation_steps} is greater than '
+                                 f'the total_steps {len(self._index_sampler)} and the drop_last is true.')
+
             if len(dataset) % batch_size == 0:
                 last_batch_size = batch_size
             else:

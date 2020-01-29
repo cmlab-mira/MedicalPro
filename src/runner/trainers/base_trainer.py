@@ -1,5 +1,6 @@
 import importlib
 import logging
+import math
 import random
 import torch
 from torch.optim.lr_scheduler import (
@@ -127,26 +128,31 @@ class BaseTrainer:
         if mode == 'train':
             self.net.train()
             dataloader = self.train_dataloader
-        else:
-            self.net.eval()
-            dataloader = self.valid_dataloader
-        trange = tqdm(dataloader, total=len(dataloader), desc=mode)
+            outter_pbar = tqdm(total=((len(dataloader) + dataloader.grad_accumulation_steps() - 1)
+                                      // dataloader.grad_accumulation_steps()),
+                               desc=mode,
+                               ascii=True)
+            inner_pbar = tqdm(total=math.ceil(dataloader.grad_accumulation_steps(0)),
+                              desc='grad_accumulation',
+                              leave=False,
+                              ascii=True)
 
-        epoch_log = EpochLog()
-        for i, batch in enumerate(trange):
-            if mode == 'train':
+            epoch_log = EpochLog()
+            for i, batch in enumerate(dataloader):
                 train_dict = self._train_step(batch)
                 losses = train_dict['losses']
                 _, _losses = zip(*sorted(losses.items()))
                 loss = (torch.stack(_losses) * self.loss_weights).sum()
                 metrics = train_dict.get('metrics')
                 outputs = train_dict.get('outputs')
+
                 if self.use_amp:
                     with amp.scale_loss(loss, self.optimizer) as scaled_loss:
                         scaled_loss /= dataloader.grad_accumulation_steps(i)
                         scaled_loss.backward()
                 else:
                     (loss / dataloader.grad_accumulation_steps(i)).backward()
+
                 if (i + 1) % dataloader.grad_accumulation_steps() == 0 or (i + 1) == len(dataloader):
                     self.optimizer.step()
                     self.optimizer.zero_grad()
@@ -154,7 +160,31 @@ class BaseTrainer:
                         self.lr_scheduler.step()
                     elif isinstance(self.lr_scheduler, CosineAnnealingWarmRestarts):
                         self.lr_scheduler.step((self.epoch - 1) + i / len(dataloader))
-            else:
+
+                if (i + 1) == len(dataloader) and not dataloader.drop_last:
+                    batch_size = len(dataloader.dataset) % dataloader.batch_size
+                else:
+                    batch_size = dataloader.batch_size
+                epoch_log.update(batch_size, loss, losses, metrics)
+
+                inner_pbar.update()
+                if (i + 1) % dataloader.grad_accumulation_steps() == 0 or (i + 1) == len(dataloader):
+                    outter_pbar.update()
+                    outter_pbar.set_postfix(**epoch_log.on_step_end_log)
+                    inner_pbar.close()
+                    inner_pbar = tqdm(total=math.ceil(dataloader.grad_accumulation_steps(i + 1)),
+                                      desc='grad_accumulation',
+                                      leave=False,
+                                      ascii=True)
+            outter_pbar.close()
+            inner_pbar.close()
+        else:
+            self.net.eval()
+            dataloader = self.valid_dataloader
+            pbar = tqdm(dataloader, desc=mode, ascii=True)
+
+            epoch_log = EpochLog()
+            for i, batch in enumerate(pbar):
                 with torch.no_grad():
                     valid_dict = self._valid_step(batch)
                     losses = valid_dict['losses']
@@ -162,12 +192,14 @@ class BaseTrainer:
                     loss = (torch.stack(_losses) * self.loss_weights).sum()
                     metrics = valid_dict.get('metrics')
                     outputs = valid_dict.get('outputs')
-            if (i + 1) == len(dataloader) and not dataloader.drop_last:
-                batch_size = len(dataloader.dataset) % dataloader.batch_size
-            else:
-                batch_size = dataloader.batch_size
-            epoch_log.update(batch_size, loss, losses, metrics)
-            trange.set_postfix(**epoch_log.on_step_end_log)
+
+                if (i + 1) == len(dataloader) and not dataloader.drop_last:
+                    batch_size = len(dataloader.dataset) % dataloader.batch_size
+                else:
+                    batch_size = dataloader.batch_size
+                epoch_log.update(batch_size, loss, losses, metrics)
+
+                pbar.set_postfix(**epoch_log.on_step_end_log)
         return epoch_log.on_epoch_end_log, batch, outputs
 
     def _train_step(self, batch):

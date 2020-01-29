@@ -39,7 +39,7 @@ def main(args):
             torch.backends.cudnn.deterministic = False
             torch.backends.cudnn.benchmark = True
         else:
-            # Make the experiment results deterministic.
+            logging.info('Make the experiment results deterministic.')
             random.seed(random_seed)
             torch.manual_seed(random_seed)
             torch.cuda.manual_seed_all(random_seed)

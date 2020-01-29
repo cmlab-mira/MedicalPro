@@ -78,7 +78,6 @@ def main(args):
 
         logging.info('Create the network architecture.')
         net = _get_instance(src.model.nets, config.net).to(device)
-        print(net)
 
         logging.info('Create the loss functions and corresponding weights.')
         loss_fns, loss_weights = LossFns(), []
@@ -104,12 +103,10 @@ def main(args):
 
         logging.info('Create the optimizer.')
         optimizer = _get_instance(torch.optim, config.optimizer, net.parameters())
-        print(optimizer)
 
         if 'lr_scheduler' in config:
             logging.info('Create the learning rate scheduler.')
             lr_scheduler = _get_instance(torch.optim.lr_scheduler, config.lr_scheduler, optimizer)
-            print(lr_scheduler)
         else:
             logging.info('Not using the learning rate scheduler.')
             lr_scheduler = None

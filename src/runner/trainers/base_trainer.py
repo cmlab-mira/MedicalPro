@@ -128,6 +128,7 @@ class BaseTrainer:
         if mode == 'train':
             self.net.train()
             dataloader = self.train_dataloader
+            dataloader_iterator = iter(dataloader)
             outter_pbar = tqdm(total=((len(dataloader) + dataloader.grad_accumulation_steps() - 1)
                                       // dataloader.grad_accumulation_steps()),
                                desc=mode,
@@ -138,7 +139,8 @@ class BaseTrainer:
                               ascii=True)
 
             epoch_log = EpochLog()
-            for i, batch in enumerate(dataloader):
+            for i in range(len(dataloader)):
+                batch = next(dataloader_iterator)
                 train_dict = self._train_step(batch)
                 losses = train_dict['losses']
                 _, _losses = zip(*sorted(losses.items()))
@@ -148,8 +150,7 @@ class BaseTrainer:
 
                 if self.use_amp:
                     with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                        scaled_loss /= dataloader.grad_accumulation_steps(i)
-                        scaled_loss.backward()
+                        (scaled_loss / dataloader.grad_accumulation_steps(i)).backward()
                 else:
                     (loss / dataloader.grad_accumulation_steps(i)).backward()
 

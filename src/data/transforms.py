@@ -1,29 +1,32 @@
-import torch
 import random
-import functools
+import torch
 import numpy as np
 import SimpleITK as sitk
 
 import src.data.transforms
 
+__all__ = [
+    'compose', 'Compose', 'ToTensor', 'Normalize', 'RandomCrop',
+    'RandomElasticDeformation', 'RandomHorizontalFlip', 'RandomVerticalFlip'
+]
+
 
 def compose(transforms=None):
     """Compose several transforms together.
     Args:
-        transforms (Box): The preprocessing and augmentation techniques applied to the data (default: None, only contain the default transform ToTensor).
+        transforms (Box): The preprocessing and augmentation techniques applied to the data.
 
     Returns:
         transforms (Compose): The list of BaseTransform.
     """
     if transforms is None:
-        return Compose([ToTensor()])
+        return None
 
     _transforms = []
     for transform in transforms:
         cls = getattr(src.data.transforms, transform.name)
         kwargs = transform.get('kwargs')
         _transforms.append(cls(**kwargs) if kwargs else cls())
-
     transforms = Compose(_transforms)
     return transforms
 
@@ -31,6 +34,10 @@ def compose(transforms=None):
 class BaseTransform:
     """The base class for all transforms.
     """
+
+    def __init__(self):
+        pass
+
     def __call__(self, *imgs, **kwargs):
         raise NotImplementedError
 
@@ -43,7 +50,9 @@ class Compose(BaseTransform):
     Args:
          transforms (Box): The preprocessing and augmentation techniques applied to the data.
     """
+
     def __init__(self, transforms):
+        super().__init__()
         self.transforms = transforms
 
     def __call__(self, *imgs, **kwargs):
@@ -74,11 +83,16 @@ class Compose(BaseTransform):
 class ToTensor(BaseTransform):
     """Convert a tuple of numpy.ndarray to a tuple of torch.Tensor.
     """
+
+    def __init__(self):
+        super().__init__()
+
     def __call__(self, *imgs, dtypes=None, **kwargs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be converted to tensor.
-            dtypes (sequence of torch.dtype, optional): The corresponding dtype of the images (default: None, transform all the images' dtype to torch.float).
+            dtypes (sequence of torch.dtype, optional): The corresponding dtype of the images
+                (default: None, transform all the images' dtype to torch.float).
 
         Returns:
             imgs (tuple of torch.Tensor): The converted images.
@@ -91,9 +105,9 @@ class ToTensor(BaseTransform):
                 raise TypeError('All of the dtypes should be torch.dtype.')
             if len(dtypes) != len(imgs):
                 raise ValueError('The number of the dtypes should be the same as the images.')
-            imgs = tuple(img.to(dtype) for img, dtype in zip(map(torch.from_numpy, imgs), dtypes))
+            imgs = tuple(img.to(dtype) for img, dtype in zip(map(torch.as_tensor, imgs), dtypes))
         else:
-            imgs = tuple(img.float() for img in map(torch.from_numpy, imgs))
+            imgs = tuple(img.float() for img in map(torch.as_tensor, imgs))
         return imgs
 
 
@@ -103,7 +117,9 @@ class Normalize(BaseTransform):
         means (list, optional): A sequence of means for each channel (default: None).
         stds (list, optional): A sequence of standard deviations for each channel (default: None).
     """
+
     def __init__(self, means=None, stds=None):
+        super().__init__()
         if means is None and stds is None:
             pass
         elif means is not None and stds is not None:
@@ -119,7 +135,8 @@ class Normalize(BaseTransform):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be normalized.
-            normalize_tags (sequence of bool, optional): The corresponding tags of the images (default: None, normalize all the images).
+            normalize_tags (sequence of bool, optional): The corresponding tags of the images
+                (default: None, normalize all the images).
 
         Returns:
             imgs (tuple of numpy.ndarray): The normalized images.
@@ -138,7 +155,7 @@ class Normalize(BaseTransform):
         _imgs = []
         for img, normalize_tag in zip(imgs, normalize_tags):
             if normalize_tag is None or normalize_tag is True:
-                if self.means is None and self.stds is None: # Apply image-level normalization.
+                if self.means is None and self.stds is None:  # Apply image-level normalization.
                     axis = tuple(range(img.ndim - 1))
                     means = img.mean(axis=axis)
                     stds = img.std(axis=axis)
@@ -173,7 +190,9 @@ class RandomCrop(BaseTransform):
     Args:
         size (list): The desired output size of the cropped images.
     """
+
     def __init__(self, size):
+        super().__init__()
         self.size = size
 
     def __call__(self, *imgs, **kwargs):
@@ -192,7 +211,8 @@ class RandomCrop(BaseTransform):
 
         ndim = imgs[0].ndim
         if ndim - 1 != len(self.size):
-            raise ValueError(f'The dimensions of the cropped size should be the same as the image ({ndim - 1}). Got {len(self.size)}')
+            raise ValueError(f'The dimensions of the cropped size should be the same as the image ({ndim - 1}). '
+                             f'Got {len(self.size)}')
 
         if ndim == 3:
             h0, hn, w0, wn = self._get_coordinates(imgs[0], self.size)
@@ -213,7 +233,8 @@ class RandomCrop(BaseTransform):
             coordinates (tuple): The coordinates of the cropped image.
         """
         if any(i - j < 0 for i, j in zip(img.shape, size)):
-            raise ValueError(f'The image ({img.shape}) is smaller than the cropped size ({size}). Please use a smaller cropped size.')
+            raise ValueError(f'The image ({img.shape}) is smaller than the cropped size ({size}). '
+                             'Please use a smaller cropped size.')
 
         if img.ndim == 3:
             h, w = img.shape[:-1]
@@ -235,7 +256,9 @@ class RandomElasticDeformation(BaseTransform):
         sigma (int or float, optional): The number to determine the extent of deformation (default: 15).
         prob (float, optional): The probability of applying the deformation (default: 0.5).
     """
+
     def __init__(self, do_z_deformation=False, num_ctrl_points=4, sigma=15, prob=0.5):
+        super().__init__()
         self.do_z_deformation = do_z_deformation
         self.num_ctrl_points = max(num_ctrl_points, 2)
         self.sigma = max(sigma, 1)
@@ -246,7 +269,8 @@ class RandomElasticDeformation(BaseTransform):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be deformed.
-            elastic_deformation_orders (sequence of int, optional): The corresponding interpolation order of the images (default: None, the interpolation order would be 3 for all the images).
+            elastic_deformation_orders (sequence of int, optional): The corresponding interpolation order of the images
+                (default: None, the interpolation order would be 3 for all the images).
 
         Returns:
             imgs (tuple of numpy.ndarray): The deformed images.
@@ -260,7 +284,8 @@ class RandomElasticDeformation(BaseTransform):
         if random.random() < self.prob:
             self._init_bspline_transform(imgs[0].shape)
             if elastic_deformation_orders:
-                imgs = tuple(self._apply_bspline_transform(img, order) for img, order in zip(imgs, elastic_deformation_orders))
+                imgs = tuple(self._apply_bspline_transform(img, order)
+                             for img, order in zip(imgs, elastic_deformation_orders))
             else:
                 imgs = map(self._apply_bspline_transform, imgs)
         return imgs
@@ -281,7 +306,7 @@ class RandomElasticDeformation(BaseTransform):
         # Set the parameters of the bspline transform randomly.
         params = self.bspline_transform.GetParameters()
         params = np.asarray(params, dtype=np.float64)
-        params = params + np.random.randn(params.shape[0]) * self.sigma
+        params = params + np.array(list(random.gauss(0, self.sigma) for _ in range(params.shape[0])))
         if len(shape) == 3 and not self.do_z_deformation:
             params[0: len(params) // 3] = 0
         params = tuple(params)
@@ -323,7 +348,9 @@ class RandomHorizontalFlip(BaseTransform):
     Args:
         prob (float, optional): The probability of applying the flip (default: 0.5).
     """
+
     def __init__(self, prob=0.5):
+        super().__init__()
         self.prob = max(0, min(prob, 1))
 
     def __call__(self, *imgs, **kwargs):
@@ -350,7 +377,9 @@ class RandomVerticalFlip(BaseTransform):
     Args:
         prob (float, optional): The probability of applying the flip (default: 0.5).
     """
+
     def __init__(self, prob=0.5):
+        super().__init__()
         self.prob = max(0, min(prob, 1))
 
     def __call__(self, *imgs, **kwargs):

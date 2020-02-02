@@ -1,10 +1,10 @@
 from .base_net import BaseNet
 from .unet3d import UNet3D
-from .model_genesis_nets import SegUNet3D, ClfUNet3D
+from .models_genesis import ModelsGenesisSegNet, ModelsGenesisClfNet
 
 __all__ = [
     'BaseNet',
     'UNet3D',
-    'SegUNet3D',
-    'ClfUNet3D',
+    'ModelsGenesisSegNet',
+    'ModelsGenesisClfNet',
 ]

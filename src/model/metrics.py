@@ -3,6 +3,7 @@ import torch.nn as nn
 
 __all__ = [
     'Dice',
+    'Accuracy',
 ]
 
 
@@ -33,3 +34,24 @@ class Dice(nn.Module):
         cardinality = pred.sum(reduced_dims) + target.sum(reduced_dims)
         score = (2 * intersection / cardinality.clamp(min=1)).mean(dim=0)
         return score
+
+    
+class Accuracy(nn.Module):
+    """The accuracy of the classification task.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, logits, labels):
+        """
+        Args:
+            logits (torch.tensor) (N, C): The model output logits.
+            labels (torch.tensor) (N, C): The data labels.
+
+        Returns:
+            score (torch.tensor) (0): The accuracy score.
+        """
+        preds = logits.argmax(dim=1)
+        labels = labels.squeeze(dim=1)
+        correct = (preds == labels).sum()
+        return correct / logits.size(0)

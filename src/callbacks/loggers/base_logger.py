@@ -31,7 +31,7 @@ class BaseLogger:
             valid_outputs (torch.Tensor or sequence of torch.Tensor): The validation outputs.
         """
         self._add_scalars(epoch, train_log, valid_log)
-        self._add_images(epoch, train_batch, train_outputs, valid_batch, valid_outputs)
+        #self._add_images(epoch, train_batch, train_outputs, valid_batch, valid_outputs)
 
     def close(self):
         """Close the writer.

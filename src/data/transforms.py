@@ -10,6 +10,7 @@ __all__ = [
     'Compose',
     'ToTensor',
     'Normalize',
+    'MinMaxScale',
     'RandomCrop',
     'RandomElasticDeformation',
     'RandomHorizontalFlip',
@@ -207,6 +208,81 @@ class Normalize(BaseTransform):
         """
         img = img.copy()
         img = (img - means) / stds.clip(min=1e-10)
+        return img
+
+
+class MinMaxScale(BaseTransform):
+    """Scale a tuple of images to a given range with the minimum and maximum values.
+    Default is to apply image-level scaling to [0, 1] per channel.
+
+    Args:
+        mins (scalar or sequence, optional): The minimum values for each channel (default: None).
+        maxs (scalar or sequence, optional): The maximum values for each channel (default: None).
+        per_channel (bool): Whether to apply image-level scaling per channel (default: True).
+            Note that this argument is only valid when mins and maxs are both None.
+        value_range (sequence, optional): The minimum and maximum value after scaling.
+    """
+
+    def __init__(self, mins=None, maxs=None, per_channel=True, value_range=(0, 1)):
+        super().__init__()
+        if mins is None and maxs is None:
+            self.mins = None
+            self.maxs = None
+            self.per_channel = per_channel
+        elif mins is not None and maxs is not None:
+            self.mins = np.array(mins)
+            self.maxs = np.array(maxs)
+        else:
+            raise ValueError('Both the mins and the maxs should have values or None.')
+
+        min_, max_ = value_range
+        if min_ > max_:
+            raise ValueError('The minimum value of value_range should be smaller than the maximum value. '
+                             f'Got {value_range}.')
+        self.value_range = value_range
+
+    def __call__(self, *imgs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be scaled.
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The scaled images.
+        """
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+
+        _imgs = tuple()
+        for img in imgs:
+            if self.mins is None and self.maxs is None:  # Apply image-level scaling.
+                axis = tuple(range(img.ndim - 1)) if self.per_channel else tuple(range(img.ndim))
+                mins = img.min(axis=axis)
+                maxs = img.max(axis=axis)
+                img = self._min_max_scale(img, mins, maxs, self.value_range)
+            else:
+                img = self._min_max_scale(img, self.mins, self.maxs, self.value_range)
+            _imgs.add(img)
+        imgs = _imgs
+        return imgs
+
+    @staticmethod
+    def _min_max_scale(img, mins, maxs, value_range):
+        """Scale the image with the minimum and maximum values.
+        Args:
+            img (numpy.ndarray): The image to be scaled.
+            mins (numpy.ndarray): The minimum values for each channel.
+            maxs (numpy.ndarray): The maximum values for each channel.
+            value_range (sequence): The minimum and minimum value after scaling.
+
+        Returns:
+            img (numpy.ndarray): The scaled image.
+        """
+        img = img.copy()
+        img = (img - mins) / (maxs - mins).clip(min=1e-10)
+        min_, max_ = value_range
+        img = img * (max_ - min_) + min_
         return img
 
 

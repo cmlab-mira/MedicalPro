@@ -2,71 +2,65 @@ import random
 import torch
 import numpy as np
 import SimpleITK as sitk
+from collections.abc import Iterable
 
 import src.data.transforms
 
 __all__ = [
-    'compose', 'Compose', 'ToTensor', 'Normalize', 'RandomCrop',
-    'RandomElasticDeformation', 'RandomHorizontalFlip', 'RandomVerticalFlip'
+    'Compose',
+    'ToTensor',
+    'Normalize',
+    'RandomCrop',
+    'RandomElasticDeformation',
+    'RandomHorizontalFlip',
+    'RandomVerticalFlip',
 ]
 
 
-def compose(transforms=None):
+class Compose:
     """Compose several transforms together.
     Args:
-        transforms (Box): The preprocessing and augmentation techniques applied to the data.
-
-    Returns:
-        transforms (Compose): The list of BaseTransform.
-    """
-    if transforms is None:
-        return None
-
-    _transforms = []
-    for transform in transforms:
-        cls = getattr(src.data.transforms, transform.name)
-        kwargs = transform.get('kwargs')
-        _transforms.append(cls(**kwargs) if kwargs else cls())
-    transforms = Compose(_transforms)
-    return transforms
-
-
-class BaseTransform:
-    """The base class for all transforms.
+         transforms (sequence of BaseTransform, optional): The preprocessing and augmentation techniques 
+            applied to the data (default: None, do not apply any transform).
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, transforms=None):
+        if transforms is None:
+            self.transforms = tuple()
+        else:
+            if not isinstance(transforms, Iterable):
+                transforms = tuple(transforms)
+            if not all(isinstance(transform, BaseTransform) for transform in transforms):
+                raise TypeError('All of the transforms should be BaseTransform.')
+            self.transforms = tuple(transforms)
 
-    def __call__(self, *imgs, **kwargs):
-        raise NotImplementedError
-
-    def __repr__(self):
-        return self.__class__.__name__
-
-
-class Compose(BaseTransform):
-    """Compose several transforms together.
-    Args:
-         transforms (Box): The preprocessing and augmentation techniques applied to the data.
-    """
-
-    def __init__(self, transforms):
-        super().__init__()
-        self.transforms = transforms
-
-    def __call__(self, *imgs, **kwargs):
+    def __call__(self, *imgs, **transform_kwargs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be transformed.
+            transform_kwargs (dict): The runtime kwargs for each transforms.
 
         Returns:
-            imgs (tuple of torch.Tensor): The transformed images.
+            imgs (tuple): The transformed images.
         """
         for transform in self.transforms:
-            imgs = transform(*imgs, **kwargs)
+            kwargs = transform_kwargs.get(transform.__class__.__name__, {})
+            tags = kwargs.get('tags', tuple(True for _ in range(len(imgs))))
+            if len(tags) != len(imgs):
+                raise ValueError('The number of the tags should be the same as the images.')
+            if not all(tag in [True, False] for tag in tags):
+                raise ValueError("All of the tags should be either True or False.")
+            if not any(tags):
+                raise ValueError("The tags should not be all False.")
 
-        # Returns the torch.Tensor instead of a tuple of torch.Tensor if there is only one image.
+            if all(tags):
+                imgs = transform(*imgs, **kwargs)
+            else:
+                _imgs = tuple(img for img, tag in zip(imgs, tags) if tag)
+                _imgs = transform(*_imgs, **kwargs)
+                imgs = np.array(imgs)
+                imgs[np.array(tags)] = _imgs
+                imgs = tuple(imgs)
         if len(imgs) == 1:
             imgs = imgs[0]
         return imgs
@@ -79,19 +73,55 @@ class Compose(BaseTransform):
         format_string += '\n)'
         return format_string
 
+    @classmethod
+    def compose(cls, transforms=None):
+        """Compose several transforms together.
+        Args:
+            transforms (Box, optional): The preprocessing and augmentation techniques 
+                applied to the data (default: None, do not apply any transform).
+
+        Returns:
+            instance (Compose): The Compose instance.
+        """
+        if transforms is None:
+            return cls(tuple())
+        if not isinstance(transforms, Box):
+            raise ValueError('The type of the transforms should be Box.')
+
+        _transforms = tuple()
+        for transform in transforms:
+            transform_cls = getattr(src.data.transforms, transform.name)
+            _transforms.add(transform_cls(**config.get('kwargs', {})))
+        return cls(_transforms)
+
+
+class BaseTransform:
+    """The base class for all transforms.
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, *imgs):
+        raise NotImplementedError
+
+    def __repr__(self):
+        return self.__class__.__name__
+
 
 class ToTensor(BaseTransform):
     """Convert a tuple of numpy.ndarray to a tuple of torch.Tensor.
+    Default is to transform a tuple of numpy.ndarray to a tuple of torch.FloatTensor.
     """
 
     def __init__(self):
         super().__init__()
 
-    def __call__(self, *imgs, dtypes=None, **kwargs):
+    def __call__(self, *imgs, dtypes=None):
         """
         Args:
-            imgs (tuple of numpy.ndarray): The images to be converted to tensor.
-            dtypes (sequence of torch.dtype, optional): The corresponding dtype of the images
+            imgs (tuple of numpy.ndarray): The images to be converted.
+            dtypes (sequence of torch.dtype, optional): The dtypes of the converted images
                 (default: None, transform all the images' dtype to torch.float).
 
         Returns:
@@ -99,73 +129,69 @@ class ToTensor(BaseTransform):
         """
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
 
-        if dtypes:
+        if dtypes is None:
+            imgs = tuple(img.float() for img in map(torch.as_tensor, imgs))
+        else:
+            if not isinstance(dtypes, Iterable):
+                dtypes = tuple(dtypes)
             if not all(isinstance(dtype, torch.dtype) for dtype in dtypes):
                 raise TypeError('All of the dtypes should be torch.dtype.')
             if len(dtypes) != len(imgs):
                 raise ValueError('The number of the dtypes should be the same as the images.')
             imgs = tuple(img.to(dtype) for img, dtype in zip(map(torch.as_tensor, imgs), dtypes))
-        else:
-            imgs = tuple(img.float() for img in map(torch.as_tensor, imgs))
         return imgs
 
 
 class Normalize(BaseTransform):
     """Normalize a tuple of images with the means and the standard deviations.
+    Default is to apply image-level normalization to zero-mean and unit-variance per channel.
+
     Args:
-        means (list, optional): A sequence of means for each channel (default: None).
-        stds (list, optional): A sequence of standard deviations for each channel (default: None).
+        means (scalar or sequence, optional): The means for each channel (default: None).
+        stds (scalar or sequence, optional): The standard deviations for each channel (default: None).
+        per_channel (bool): Whether to apply image-level normalization per channel (default: True).
+            Note that this argument is only valid when means and stds are both None.
     """
 
-    def __init__(self, means=None, stds=None):
+    def __init__(self, means=None, stds=None, per_channel=True):
         super().__init__()
         if means is None and stds is None:
-            pass
+            self.means = None
+            self.stds = None
+            self.per_channel = per_channel
         elif means is not None and stds is not None:
-            if len(means) != len(stds):
-                raise ValueError('The number of the means should be the same as the standard deviations.')
+            self.means = np.array(means)
+            self.stds = np.array(stds)
         else:
             raise ValueError('Both the means and the standard deviations should have values or None.')
 
-        self.means = means
-        self.stds = stds
-
-    def __call__(self, *imgs, normalize_tags=None, **kwargs):
+    def __call__(self, *imgs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be normalized.
-            normalize_tags (sequence of bool, optional): The corresponding tags of the images
-                (default: None, normalize all the images).
 
         Returns:
             imgs (tuple of numpy.ndarray): The normalized images.
         """
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
 
-        if normalize_tags:
-            if len(normalize_tags) != len(imgs):
-                raise ValueError('The number of the tags should be the same as the images.')
-            if not all(normalize_tag in [True, False] for normalize_tag in normalize_tags):
-                raise ValueError("All of the tags should be either True or False.")
-        else:
-            normalize_tags = [None] * len(imgs)
-
-        _imgs = []
-        for img, normalize_tag in zip(imgs, normalize_tags):
-            if normalize_tag is None or normalize_tag is True:
-                if self.means is None and self.stds is None:  # Apply image-level normalization.
-                    axis = tuple(range(img.ndim - 1))
-                    means = img.mean(axis=axis)
-                    stds = img.std(axis=axis)
-                    img = self._normalize(img, means, stds)
-                else:
-                    img = self._normalize(img, self.means, self.stds)
-            elif normalize_tag is False:
-                pass
-            _imgs.append(img)
-        imgs = tuple(_imgs)
+        _imgs = tuple()
+        for img in imgs:
+            if self.means is None and self.stds is None:  # Apply image-level normalization.
+                axis = tuple(range(img.ndim - 1)) if self.per_channel else tuple(range(img.ndim))
+                means = img.mean(axis=axis)
+                stds = img.std(axis=axis)
+                img = self._normalize(img, means, stds)
+            else:
+                img = self._normalize(img, self.means, self.stds)
+            _imgs.add(img)
+        imgs = _imgs
         return imgs
 
     @staticmethod
@@ -173,29 +199,28 @@ class Normalize(BaseTransform):
         """Normalize the image with the means and the standard deviations.
         Args:
             img (numpy.ndarray): The image to be normalized.
-            means (list): A sequence of means for each channel.
-            stds (list): A sequence of standard deviations for each channel.
+            means (numpy.ndarray): The means for each channel.
+            stds (numpy.ndarray): The standard deviations for each channel.
 
         Returns:
             img (numpy.ndarray): The normalized image.
         """
         img = img.copy()
-        for c, mean, std in zip(range(img.shape[-1]), means, stds):
-            img[..., c] = (img[..., c] - mean) / (std + 1e-10)
+        img = (img - means) / stds.clip(min=1e-10)
         return img
 
 
 class RandomCrop(BaseTransform):
     """Crop a tuple of images at the same random location.
     Args:
-        size (list): The desired output size of the cropped images.
+        size (sequence): The desired output size of the cropped images.
     """
 
     def __init__(self, size):
         super().__init__()
         self.size = size
 
-    def __call__(self, *imgs, **kwargs):
+    def __call__(self, *imgs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be cropped.
@@ -205,21 +230,20 @@ class RandomCrop(BaseTransform):
         """
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
-
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
             raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
 
         ndim = imgs[0].ndim
         if ndim - 1 != len(self.size):
-            raise ValueError(f'The dimensions of the cropped size should be the same as the image ({ndim - 1}). '
-                             f'Got {len(self.size)}')
+            raise ValueError(f'The dimensions of the cropped size should be the same as '
+                             f'the image ({ndim - 1}). Got {len(self.size)}.')
 
         if ndim == 3:
             h0, hn, w0, wn = self._get_coordinates(imgs[0], self.size)
-            imgs = tuple([img[h0:hn, w0:wn] for img in imgs])
+            imgs = tuple(img[h0:hn, w0:wn] for img in imgs)
         elif ndim == 4:
             h0, hn, w0, wn, d0, dn = self._get_coordinates(imgs[0], self.size)
-            imgs = tuple([img[h0:hn, w0:wn, d0:dn] for img in imgs])
+            imgs = tuple(img[h0:hn, w0:wn, d0:dn] for img in imgs)
         return imgs
 
     @staticmethod
@@ -227,14 +251,14 @@ class RandomCrop(BaseTransform):
         """Compute the coordinates of the cropped image.
         Args:
             img (numpy.ndarray): The image to be cropped.
-            size (list): The desired output size of the cropped image.
+            size (sequence): The desired output size of the cropped image.
 
         Returns:
             coordinates (tuple): The coordinates of the cropped image.
         """
-        if any(i - j < 0 for i, j in zip(img.shape, size)):
-            raise ValueError(f'The image ({img.shape}) is smaller than the cropped size ({size}). '
-                             'Please use a smaller cropped size.')
+        if any(i < j for i, j in zip(img.shape[:-1], size)):
+            raise ValueError(f'The image size {img.shape[:-1]} is smaller than '
+                             f'the cropped size {size}. Please use a smaller cropped size.')
 
         if img.ndim == 3:
             h, w = img.shape[:-1]
@@ -250,10 +274,16 @@ class RandomCrop(BaseTransform):
 
 class RandomElasticDeformation(BaseTransform):
     """Do the random elastic deformation as used in U-Net and V-Net by using the bspline transform.
+    Ref: 
+        https://niftynet.readthedocs.io/en/dev/_modules/niftynet/layer/rand_elastic_deform.html
+
     Args:
-        do_z_deformation (bool, optional): Whether to apply the deformation along the z dimension (default: False).
-        num_ctrl_points (int, optional): The number of the control points to form the control point grid (default: 4).
-        sigma (int or float, optional): The number to determine the extent of deformation (default: 15).
+        do_z_deformation (bool, optional): Whether to apply the deformation
+            along the z dimension (default: False).
+        num_ctrl_points (int, optional): The number of the control points
+            to form the control point grid (default: 4).
+        sigma (scalar, optional): The number to determine 
+            the extent of deformation (default: 15).
         prob (float, optional): The probability of applying the deformation (default: 0.5).
     """
 
@@ -265,11 +295,11 @@ class RandomElasticDeformation(BaseTransform):
         self.prob = max(0, min(prob, 1))
         self.bspline_transform = None
 
-    def __call__(self, *imgs, elastic_deformation_orders=None, **kwargs):
+    def __call__(self, *imgs, orders=None):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be deformed.
-            elastic_deformation_orders (sequence of int, optional): The corresponding interpolation order of the images
+            orders (sequence of int, optional): The corresponding interpolation order of the images
                 (default: None, the interpolation order would be 3 for all the images).
 
         Returns:
@@ -277,7 +307,6 @@ class RandomElasticDeformation(BaseTransform):
         """
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
-
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
             raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
 
@@ -306,7 +335,7 @@ class RandomElasticDeformation(BaseTransform):
         # Set the parameters of the bspline transform randomly.
         params = self.bspline_transform.GetParameters()
         params = np.asarray(params, dtype=np.float64)
-        params = params + np.array(list(random.gauss(0, self.sigma) for _ in range(params.shape[0])))
+        params = params + np.array(tuple(random.gauss(0, self.sigma) for _ in range(params.shape[0])))
         if len(shape) == 3 and not self.do_z_deformation:
             params[0: len(params) // 3] = 0
         params = tuple(params)
@@ -353,7 +382,7 @@ class RandomHorizontalFlip(BaseTransform):
         super().__init__()
         self.prob = max(0, min(prob, 1))
 
-    def __call__(self, *imgs, **kwargs):
+    def __call__(self, *imgs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be flipped.
@@ -363,12 +392,11 @@ class RandomHorizontalFlip(BaseTransform):
         """
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
-
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
             raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
 
         if random.random() < self.prob:
-            imgs = tuple([np.flip(img, 1) for img in imgs])
+            imgs = tuple(np.flip(img, 1) for img in imgs)
         return imgs
 
 
@@ -382,7 +410,7 @@ class RandomVerticalFlip(BaseTransform):
         super().__init__()
         self.prob = max(0, min(prob, 1))
 
-    def __call__(self, *imgs, **kwargs):
+    def __call__(self, *imgs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be flipped.
@@ -392,10 +420,9 @@ class RandomVerticalFlip(BaseTransform):
         """
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
-
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
             raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
 
         if random.random() < self.prob:
-            imgs = tuple([np.flip(img, 0) for img in imgs])
+            imgs = tuple(np.flip(img, 0) for img in imgs)
         return imgs

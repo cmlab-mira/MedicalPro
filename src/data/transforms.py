@@ -1,3 +1,4 @@
+import functools
 import random
 import torch
 import numpy as np
@@ -11,6 +12,7 @@ __all__ = [
     'ToTensor',
     'Normalize',
     'MinMaxScale',
+    'Clip',
     'RandomCrop',
     'RandomElasticDeformation',
     'RandomHorizontalFlip',
@@ -284,6 +286,34 @@ class MinMaxScale(BaseTransform):
         min_, max_ = value_range
         img = img * (max_ - min_) + min_
         return img
+
+
+class Clip(BaseTransform):
+    """Clip a tuple of images to a given range.
+    Args:
+        mins (scalar or sequence, optional): The minimum values for each channel (default: None).
+        maxs (scalar or sequence, optional): The maximum values for each channel (default: None).
+    """
+
+    def __init__(self, mins=None, maxs=None):
+        super().__init__()
+        self._clip = functools.partial(np.clip, a_min=mins, a_max=maxs)
+
+    def __call__(self, *imgs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be cliped.
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The cliped images.
+        """
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+
+        imgs = tuple(self._clip(img) for img in imgs)
+        return imgs
 
 
 class RandomCrop(BaseTransform):

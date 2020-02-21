@@ -13,6 +13,7 @@ __all__ = [
     'Normalize',
     'MinMaxScale',
     'Clip',
+    'Resample',
     'RandomCrop',
     'RandomElasticDeform',
     'RandomHorizontalFlip',
@@ -23,7 +24,7 @@ __all__ = [
 class Compose:
     """Compose several transforms together.
     Args:
-         transforms (sequence of BaseTransform, optional): The preprocessing and augmentation techniques 
+         transforms (sequence of BaseTransform, optional): The preprocessing and augmentation techniques
             applied to the data (default: None, do not apply any transform).
     """
 
@@ -50,9 +51,9 @@ class Compose:
             if len(tags) != len(imgs):
                 raise ValueError('The number of the tags should be the same as the images.')
             if not all(tag in [True, False] for tag in tags):
-                raise ValueError("All of the tags should be either True or False.")
+                raise ValueError('All of the tags should be either True or False.')
             if not any(tags):
-                raise ValueError("The tags should not be all False.")
+                raise ValueError('The tags should not be all False.')
 
             if all(tags):
                 imgs = transform(*imgs, **kwargs)
@@ -76,7 +77,7 @@ class Compose:
     def compose(cls, transforms=None):
         """Compose several transforms together.
         Args:
-            transforms (BoxList, optional): The preprocessing and augmentation techniques 
+            transforms (BoxList, optional): The preprocessing and augmentation techniques
                 applied to the data (default: None, do not apply any transform).
 
         Returns:
@@ -129,7 +130,7 @@ class ToTensor(BaseTransform):
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
-            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+            raise ValueError('All of the images should be 2D or 3D with channels.')
 
         if dtypes is None:
             dtypes = tuple(torch.float() for _ in range(len(imgs)))
@@ -173,7 +174,7 @@ class Normalize(BaseTransform):
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
-            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+            raise ValueError('All of the images should be 2D or 3D with channels.')
 
         _imgs = []
         for img in imgs:
@@ -245,7 +246,7 @@ class MinMaxScale(BaseTransform):
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
-            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+            raise ValueError('All of the images should be 2D or 3D with channels.')
 
         _imgs = []
         for img in imgs:
@@ -301,10 +302,91 @@ class Clip(BaseTransform):
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
-            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+            raise ValueError('All of the images should be 2D or 3D with channels.')
 
         imgs = tuple(self._clip(img) for img in imgs)
         return imgs
+
+
+class Resample(BaseTransform):
+    """Resample a tuple of images to the given resolution.
+    Args:
+        output_spacing (sequence): The target resolution of the images.
+    """
+
+    def __init__(self, output_spacing):
+        self.output_spacing = output_spacing
+
+    def __call__(self, *imgs, input_spacings, orders=None):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be resampled.
+            input_spacings (sequence): The original resolutions of the images.
+            orders (sequence of int, optional): The interpolation orders (should be 0, 1 or 3)
+                (default: None, the interpolation order would be 1 for all the images).
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The resampled images.
+        """
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError('All of the images should be 2D or 3D with channels.')
+        if not all(img.shape[-1] == 1 for img in imgs):
+            raise ValueError('All of the images should be single-channel.')
+
+        if orders is None:
+            orders = tuple(1 for _ in range(len(imgs)))
+        if len(input_spacings) != len(imgs):
+            raise ValueError('The number of the input spacings should be the same as the images')
+        if len(orders) != len(imgs):
+            raise ValueError('The number of the orders should be the same as the images.')
+        ndim = imgs[0].ndim
+        if not all(len(input_spacing) == (ndim - 1) for input_spacing in input_spacings):
+            raise ValueError('The dimensions of all input spacings should be the same as the image.')
+        if len(self.output_spacing) != (ndim - 1):
+            raise ValueError('The dimensions of the output spacing should be the same as the image.')
+        if not all(order in [0, 1, 3] for order in orders):
+            raise ValueError('All of the interpolation orders should be 0, 1 or 3.')
+
+        imgs = tuple(self._resample(img, input_spacing, self.output_spacing, order)
+                     for img, input_spacing, order in zip(imgs, input_spacings, orders))
+        return imgs
+
+    @staticmethod
+    def _resample(img, input_spacing, output_spacing, order):
+        """Resample the image to the given resolution.
+        Args:
+            img (np.ndarray): The image to be resampled.
+            input_spacing (sequence): The original resolutions of the image.
+            output_spacing (sequence): The target resolution of the image.
+            order (int): The interpolation order (should be 0, 1 or 3).
+
+        Returns:
+            img (np.ndarray): The resampled image.
+        """
+        resampler = sitk.ResampleImageFilter()
+        if order == 0:
+            resampler.SetInterpolator(sitk.sitkNearestNeighbor)
+        elif order == 1:
+            resampler.SetInterpolator(sitk.sitkLinear)
+        elif order == 3:
+            resampler.SetInterpolator(sitk.sitkBSpline)
+
+        size = tuple(
+            map(
+                int,
+                (np.array(img.shape[:-1]) * np.array(input_spacing) // np.array(output_spacing))[::-1]
+            )
+        )
+        img = sitk.GetImageFromArray(np.squeeze(img, axis=-1))
+        img.SetSpacing(tuple(map(float, input_spacing))[::-1])
+        resampler.SetReferenceImage(img)
+        resampler.SetOutputSpacing(tuple(map(float, output_spacing))[::-1])
+        resampler.SetSize(size)
+        img = resampler.Execute(img)
+        img = sitk.GetArrayFromImage(img)[..., np.newaxis]
+        return img
 
 
 class RandomCrop(BaseTransform):
@@ -328,12 +410,15 @@ class RandomCrop(BaseTransform):
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
-            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
-
+            raise ValueError('All of the images should be 2D or 3D with channels.')
+        if not all(img.shape[:-1] == imgs[0].shape[:-1] for img in imgs):
+            raise ValueError('All of the images should have the same size.')
         ndim = imgs[0].ndim
-        if ndim - 1 != len(self.size):
-            raise ValueError('The dimensions of the cropped size should be the same as '
-                             f'the image ({ndim - 1}). Got {len(self.size)}.')
+        if len(self.size) != (ndim - 1):
+            raise ValueError('The dimensions of the cropped size should be the same as the image.')
+        if any(i < j for i, j in zip(imgs[0].shape[:-1], size)):
+            raise ValueError(f'The image size {imgs[0].shape[:-1]} is smaller than '
+                             f'the cropped size {size}. Please use a smaller cropped size.')
 
         if ndim == 3:
             h0, hn, w0, wn = self._get_coordinates(imgs[0], self.size)
@@ -353,10 +438,6 @@ class RandomCrop(BaseTransform):
         Returns:
             coordinates (tuple): The coordinates of the cropped image.
         """
-        if any(i < j for i, j in zip(img.shape[:-1], size)):
-            raise ValueError(f'The image size {img.shape[:-1]} is smaller than '
-                             f'the cropped size {size}. Please use a smaller cropped size.')
-
         if img.ndim == 3:
             h, w = img.shape[:-1]
             ht, wt = size
@@ -393,7 +474,7 @@ class RandomElasticDeform(BaseTransform):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be deformed.
-            orders (sequence of int, optional): The corresponding interpolation order of the images
+            orders (sequence of int, optional): The interpolation orders (should be 0, 1 or 3)
                 (default: None, the interpolation order would be 3 for all the images).
 
         Returns:
@@ -402,9 +483,11 @@ class RandomElasticDeform(BaseTransform):
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
-            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+            raise ValueError('All of the images should be 2D or 3D with channels.')
         if not all(img.shape[-1] == 1 for img in imgs):
-            raise ValueError("All of the images should be single channel.")
+            raise ValueError('All of the images should be single-channel.')
+        if not all(img.shape[:-1] == imgs[0].shape[:-1] for img in imgs):
+            raise ValueError('All of the images should have the same size.')
 
         if random.random() < self.prob:
             bspline_transform = self._get_bspline_transform(imgs[0].shape[:-1])
@@ -412,6 +495,8 @@ class RandomElasticDeform(BaseTransform):
                 orders = tuple(3 for _ in range(len(imgs)))
             if len(orders) != len(imgs):
                 raise ValueError('The number of the orders should be the same as the images.')
+            if not all(order in [0, 1, 3] for order in orders):
+                raise ValueError('All of the interpolation orders should be 0, 1 or 3.')
             imgs = tuple(self._elastic_deform(img, bspline_transform, order)
                          for img, order in zip(imgs, orders))
         return imgs
@@ -440,12 +525,11 @@ class RandomElasticDeform(BaseTransform):
         Args:
             img (np.ndarray): The image to be deformed.
             bspline_transform (BSplineTransform): The BSplineTransform instance.
-            order (int, optional): The interpolation order (should be 0, 1 or 3).
+            order (int): The interpolation order (should be 0, 1 or 3).
 
         Returns:
             img (np.ndarray): The deformed image.
         """
-        # Create the resampler.
         resampler = sitk.ResampleImageFilter()
         if order == 0:
             resampler.SetInterpolator(sitk.sitkNearestNeighbor)
@@ -453,10 +537,7 @@ class RandomElasticDeform(BaseTransform):
             resampler.SetInterpolator(sitk.sitkLinear)
         elif order == 3:
             resampler.SetInterpolator(sitk.sitkBSpline)
-        else:
-            raise ValueError(f'The interpolation order should be 0, 1 or 3. Got {order}.')
 
-        # Apply the bspline transform.
         img = sitk.GetImageFromArray(np.squeeze(img, axis=-1))
         resampler.SetReferenceImage(img)
         resampler.SetTransform(bspline_transform)
@@ -486,7 +567,7 @@ class RandomHorizontalFlip(BaseTransform):
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
-            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+            raise ValueError('All of the images should be 2D or 3D with channels.')
 
         if random.random() < self.prob:
             imgs = tuple(np.flip(img, axis=1) for img in imgs)
@@ -514,7 +595,7 @@ class RandomVerticalFlip(BaseTransform):
         if not all(isinstance(img, np.ndarray) for img in imgs):
             raise TypeError('All of the images should be numpy.ndarray.')
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
-            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+            raise ValueError('All of the images should be 2D or 3D with channels.')
 
         if random.random() < self.prob:
             imgs = tuple(np.flip(img, axis=0) for img in imgs)

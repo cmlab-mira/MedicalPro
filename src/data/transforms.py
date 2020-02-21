@@ -99,9 +99,6 @@ class BaseTransform:
     """The base class for all transforms.
     """
 
-    def __init__(self):
-        pass
-
     def __call__(self, *imgs):
         raise NotImplementedError
 
@@ -111,11 +108,16 @@ class BaseTransform:
 
 class ToTensor(BaseTransform):
     """Convert a tuple of numpy.ndarray to a tuple of torch.Tensor.
-    Default is to transform a tuple of numpy.ndarray to a tuple of torch.FloatTensor.
+    Default is to transform a tuple of numpy.ndarray to a tuple of channel-first torch.FloatTensor.
+
+    Args:
+        channel_first (bool, optional): Whether the data format of the output data is channel-first,
+            that is (H, W, C) to (C, H, W) and (H, W, D, C) to (C, D, H, W) (default: True).
     """
 
-    def __init__(self):
+    def __init__(self, channel_first=True):
         super().__init__()
+        self.channel_first = channel_first
 
     def __call__(self, *imgs, dtypes=None):
         """
@@ -137,6 +139,11 @@ class ToTensor(BaseTransform):
         if len(dtypes) != len(imgs):
             raise ValueError('The number of the dtypes should be the same as the images.')
         imgs = tuple(torch.as_tensor(img, dtype=dtype) for img, dtype in zip(imgs, dtypes))
+        if self.channel_first:
+            if imgs[0].ndim == 3:
+                imgs = tuple(img.permute(2, 0, 1).contiguous() for img in imgs)
+            elif imgs[0].ndim == 4:
+                imgs = tuple(img.permute(3, 2, 0, 1).contiguous() for img in imgs)
         return imgs
 
 

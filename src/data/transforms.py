@@ -3,7 +3,7 @@ import random
 import torch
 import numpy as np
 import SimpleITK as sitk
-from collections.abc import Iterable
+from box import BoxList
 
 import src.data.transforms
 
@@ -14,7 +14,7 @@ __all__ = [
     'MinMaxScale',
     'Clip',
     'RandomCrop',
-    'RandomElasticDeformation',
+    'RandomElasticDeform',
     'RandomHorizontalFlip',
     'RandomVerticalFlip',
 ]
@@ -31,8 +31,6 @@ class Compose:
         if transforms is None:
             self.transforms = tuple()
         else:
-            if not isinstance(transforms, Iterable):
-                transforms = tuple(transforms)
             if not all(isinstance(transform, BaseTransform) for transform in transforms):
                 raise TypeError('All of the transforms should be BaseTransform.')
             self.transforms = tuple(transforms)
@@ -64,8 +62,6 @@ class Compose:
                 imgs = np.array(imgs)
                 imgs[np.array(tags)] = _imgs
                 imgs = tuple(imgs)
-        if len(imgs) == 1:
-            imgs = imgs[0]
         return imgs
 
     def __repr__(self):
@@ -80,7 +76,7 @@ class Compose:
     def compose(cls, transforms=None):
         """Compose several transforms together.
         Args:
-            transforms (Box, optional): The preprocessing and augmentation techniques 
+            transforms (BoxList, optional): The preprocessing and augmentation techniques 
                 applied to the data (default: None, do not apply any transform).
 
         Returns:
@@ -88,14 +84,14 @@ class Compose:
         """
         if transforms is None:
             return cls(tuple())
-        if not isinstance(transforms, Box):
-            raise ValueError('The type of the transforms should be Box.')
+        if not isinstance(transforms, BoxList):
+            raise ValueError('The type of the transforms should be BoxList.')
 
-        _transforms = tuple()
+        _transforms = []
         for transform in transforms:
             transform_cls = getattr(src.data.transforms, transform.name)
-            _transforms.add(transform_cls(**config.get('kwargs', {})))
-        return cls(_transforms)
+            _transforms.append(transform_cls(**transform.get('kwargs', {})))
+        return cls(tuple(_transforms))
 
 
 class BaseTransform:
@@ -136,15 +132,10 @@ class ToTensor(BaseTransform):
             raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
 
         if dtypes is None:
-            imgs = tuple(img.float() for img in map(torch.as_tensor, imgs))
-        else:
-            if not isinstance(dtypes, Iterable):
-                dtypes = tuple(dtypes)
-            if not all(isinstance(dtype, torch.dtype) for dtype in dtypes):
-                raise TypeError('All of the dtypes should be torch.dtype.')
-            if len(dtypes) != len(imgs):
-                raise ValueError('The number of the dtypes should be the same as the images.')
-            imgs = tuple(img.to(dtype) for img, dtype in zip(map(torch.as_tensor, imgs), dtypes))
+            dtypes = tuple(torch.float() for _ in range(len(imgs)))
+        if len(dtypes) != len(imgs):
+            raise ValueError('The number of the dtypes should be the same as the images.')
+        imgs = tuple(torch.as_tensor(img, dtype=dtype) for img, dtype in zip(imgs, dtypes))
         return imgs
 
 
@@ -184,7 +175,7 @@ class Normalize(BaseTransform):
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
             raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
 
-        _imgs = tuple()
+        _imgs = []
         for img in imgs:
             if self.means is None and self.stds is None:  # Apply image-level normalization.
                 axis = tuple(range(img.ndim - 1)) if self.per_channel else tuple(range(img.ndim))
@@ -193,8 +184,8 @@ class Normalize(BaseTransform):
                 img = self._normalize(img, means, stds)
             else:
                 img = self._normalize(img, self.means, self.stds)
-            _imgs.add(img)
-        imgs = _imgs
+            _imgs.append(img)
+        imgs = tuple(_imgs)
         return imgs
 
     @staticmethod
@@ -256,7 +247,7 @@ class MinMaxScale(BaseTransform):
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
             raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
 
-        _imgs = tuple()
+        _imgs = []
         for img in imgs:
             if self.mins is None and self.maxs is None:  # Apply image-level scaling.
                 axis = tuple(range(img.ndim - 1)) if self.per_channel else tuple(range(img.ndim))
@@ -265,8 +256,8 @@ class MinMaxScale(BaseTransform):
                 img = self._min_max_scale(img, mins, maxs, self.value_range)
             else:
                 img = self._min_max_scale(img, self.mins, self.maxs, self.value_range)
-            _imgs.add(img)
-        imgs = _imgs
+            _imgs.append(img)
+        imgs = tuple(_imgs)
         return imgs
 
     @staticmethod
@@ -341,7 +332,7 @@ class RandomCrop(BaseTransform):
 
         ndim = imgs[0].ndim
         if ndim - 1 != len(self.size):
-            raise ValueError(f'The dimensions of the cropped size should be the same as '
+            raise ValueError('The dimensions of the cropped size should be the same as '
                              f'the image ({ndim - 1}). Got {len(self.size)}.')
 
         if ndim == 3:
@@ -378,18 +369,16 @@ class RandomCrop(BaseTransform):
             return h0, h0 + ht, w0, w0 + wt, d0, d0 + dt
 
 
-class RandomElasticDeformation(BaseTransform):
-    """Do the random elastic deformation as used in U-Net and V-Net by using the bspline transform.
-    Ref: 
+class RandomElasticDeform(BaseTransform):
+    """Randomly elastic deform a tuple of images by using the bspline transform (as used in U-Net and V-Net).
+    Ref:
         https://niftynet.readthedocs.io/en/dev/_modules/niftynet/layer/rand_elastic_deform.html
 
     Args:
-        do_z_deformation (bool, optional): Whether to apply the deformation
-            along the z dimension (default: False).
-        num_ctrl_points (int, optional): The number of the control points
-            to form the control point grid (default: 4).
-        sigma (scalar, optional): The number to determine 
-            the extent of deformation (default: 15).
+        do_z_deformation (bool, optional): Whether to apply the deformation along the z dimension (default: False).
+            Note that this argument is only valid when images are all 3D.
+        num_ctrl_points (int, optional): The number of the control points to form the control point grid (default: 4).
+        sigma (scalar, optional): The number to determine the extent of deformation (default: 15).
         prob (float, optional): The probability of applying the deformation (default: 0.5).
     """
 
@@ -399,7 +388,6 @@ class RandomElasticDeformation(BaseTransform):
         self.num_ctrl_points = max(num_ctrl_points, 2)
         self.sigma = max(sigma, 1)
         self.prob = max(0, min(prob, 1))
-        self.bspline_transform = None
 
     def __call__(self, *imgs, orders=None):
         """
@@ -415,43 +403,44 @@ class RandomElasticDeformation(BaseTransform):
             raise TypeError('All of the images should be numpy.ndarray.')
         if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
             raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+        if not all(img.shape[-1] == 1 for img in imgs):
+            raise ValueError("All of the images should be single channel.")
 
         if random.random() < self.prob:
-            self._init_bspline_transform(imgs[0].shape)
-            if elastic_deformation_orders:
-                imgs = tuple(self._apply_bspline_transform(img, order)
-                             for img, order in zip(imgs, elastic_deformation_orders))
-            else:
-                imgs = map(self._apply_bspline_transform, imgs)
+            bspline_transform = self._get_bspline_transform(imgs[0].shape[:-1])
+            if orders is None:
+                orders = tuple(3 for _ in range(len(imgs)))
+            if len(orders) != len(imgs):
+                raise ValueError('The number of the orders should be the same as the images.')
+            imgs = tuple(self._elastic_deform(img, bspline_transform, order)
+                         for img, order in zip(imgs, orders))
         return imgs
 
-    def _init_bspline_transform(self, shape):
-        """Initialize the bspline transform.
+    def _get_bspline_transform(self, shape):
+        """Get the bspline transform with random parameters.
         Args:
             shape (tuple): The size of the control point grid.
         """
-        # Remove the channel dimension.
-        shape = shape[:-1]
-
         # Initialize the control point grid.
         img = sitk.GetImageFromArray(np.zeros(shape))
-        mesh_size = [self.num_ctrl_points] * img.GetDimension()
-        self.bspline_transform = sitk.BSplineTransformInitializer(img, mesh_size)
+        mesh_size = tuple(self.num_ctrl_points for _ in range(img.GetDimension()))
+        bspline_transform = sitk.BSplineTransformInitializer(img, mesh_size)
 
         # Set the parameters of the bspline transform randomly.
-        params = self.bspline_transform.GetParameters()
-        params = np.asarray(params, dtype=np.float64)
+        params = np.array(bspline_transform.GetParameters())
         params = params + np.array(tuple(random.gauss(0, self.sigma) for _ in range(params.shape[0])))
         if len(shape) == 3 and not self.do_z_deformation:
-            params[0: len(params) // 3] = 0
-        params = tuple(params)
-        self.bspline_transform.SetParameters(params)
+            params[0:len(params) // 3] = 0
+        bspline_transform.SetParameters(tuple(params))
+        return bspline_transform
 
-    def _apply_bspline_transform(self, img, order=3):
-        """Apply the bspline transform.
+    @staticmethod
+    def _elastic_deform(img, bspline_transform, order):
+        """Elastic deform the image by using the bspline transform.
         Args:
             img (np.ndarray): The image to be deformed.
-            order (int, optional): The interpolation order (default: 3, should be 0, 1 or 3).
+            bspline_transform (BSplineTransform): The BSplineTransform instance.
+            order (int, optional): The interpolation order (should be 0, 1 or 3).
 
         Returns:
             img (np.ndarray): The deformed image.
@@ -468,18 +457,16 @@ class RandomElasticDeformation(BaseTransform):
             raise ValueError(f'The interpolation order should be 0, 1 or 3. Got {order}.')
 
         # Apply the bspline transform.
-        shape = img.shape
-        img = sitk.GetImageFromArray(np.squeeze(img))
+        img = sitk.GetImageFromArray(np.squeeze(img, axis=-1))
         resampler.SetReferenceImage(img)
-        resampler.SetDefaultPixelValue(0)
-        resampler.SetTransform(self.bspline_transform)
+        resampler.SetTransform(bspline_transform)
         img = resampler.Execute(img)
-        img = sitk.GetArrayFromImage(img).reshape(shape)
+        img = sitk.GetArrayFromImage(img)[..., np.newaxis]
         return img
 
 
 class RandomHorizontalFlip(BaseTransform):
-    """Do the random flip horizontally.
+    """Randomly flip a tuple of images horizontally.
     Args:
         prob (float, optional): The probability of applying the flip (default: 0.5).
     """
@@ -502,12 +489,12 @@ class RandomHorizontalFlip(BaseTransform):
             raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
 
         if random.random() < self.prob:
-            imgs = tuple(np.flip(img, 1) for img in imgs)
+            imgs = tuple(np.flip(img, axis=1) for img in imgs)
         return imgs
 
 
 class RandomVerticalFlip(BaseTransform):
-    """Do the random flip vertically.
+    """Randomly flip a tuple of images vertically.
     Args:
         prob (float, optional): The probability of applying the flip (default: 0.5).
     """
@@ -530,5 +517,5 @@ class RandomVerticalFlip(BaseTransform):
             raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
 
         if random.random() < self.prob:
-            imgs = tuple(np.flip(img, 0) for img in imgs)
+            imgs = tuple(np.flip(img, axis=0) for img in imgs)
         return imgs

@@ -21,7 +21,7 @@ class BaseTrainer:
         valid_dataloader (Dataloader): The validation dataloader.
         net (BaseNet): The network architecture.
         loss_fns (LossFns): The loss functions.
-        loss_weights (torch.Tensor): The corresponding weights of loss functions.
+        loss_weights (LossWeights): The corresponding weights of loss functions.
         metric_fns (MetricFns): The metric functions.
         optimizer (torch.optim.Optimizer): The algorithm to train the network.
         lr_scheduler (torch.optim.lr_scheduler): The scheduler to adjust the learning rate.
@@ -143,9 +143,8 @@ class BaseTrainer:
             for i in range(len(dataloader)):
                 batch = next(dataloader_iterator)
                 train_dict = self._train_step(batch)
-                losses = train_dict['losses']
-                _, _losses = zip(*sorted(losses.items()))
-                loss = (torch.stack(_losses) * self.loss_weights).sum()
+                loss = train_dict['loss']
+                losses = train_dict.get('losses')
                 metrics = train_dict.get('metrics')
                 outputs = train_dict.get('outputs')
 
@@ -189,9 +188,8 @@ class BaseTrainer:
             for i, batch in enumerate(pbar):
                 with torch.no_grad():
                     valid_dict = self._valid_step(batch)
-                    losses = valid_dict['losses']
-                    _, _losses = zip(*sorted(losses.items()))
-                    loss = (torch.stack(_losses) * self.loss_weights).sum()
+                    loss = valid_dict['loss']
+                    losses = valid_dict.get('losses')
                     metrics = valid_dict.get('metrics')
                     outputs = valid_dict.get('outputs')
 
@@ -211,7 +209,8 @@ class BaseTrainer:
 
         Returns:
             train_dict (dict): The computed results.
-                train_dict['losses'] (dict)
+                train_dict['loss'] (torch.Tensor)
+                train_dict['losses'] (dict, optional)
                 train_dict['metrics'] (dict, optional)
                 train_dict['outputs'] (dict, optional)
         """
@@ -224,7 +223,8 @@ class BaseTrainer:
 
         Returns:
             valid_dict (dict): The computed results.
-                valid_dict['losses'] (dict)
+                valid_dict['loss'] (torch.Tensor)
+                valid_dict['losses'] (dict, optional)
                 valid_dict['metrics'] (dict, optional)
                 valid_dict['outputs'] (dict, optional)
         """

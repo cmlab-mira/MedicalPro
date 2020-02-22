@@ -14,7 +14,7 @@ class BasePredictor:
         test_dataloader (Dataloader): The testing dataloader.
         net (BaseNet): The network architecture.
         loss_fns (LossFns): The loss functions.
-        loss_weights (torch.Tensor): The corresponding weights of loss functions.
+        loss_weights (LossWeights): The corresponding weights of loss functions.
         metric_fns (MetricFns): The metric functions.
     """
 
@@ -37,9 +37,8 @@ class BasePredictor:
         for i, batch in enumerate(pbar):
             with torch.no_grad():
                 test_dict = self._test_step(batch)
-                losses = test_dict['losses']
-                _, _losses = zip(*sorted(losses.items()))
-                loss = (torch.stack(_losses) * self.loss_weights).sum()
+                loss = test_dict['loss']
+                losses = test_dict.get('losses')
                 metrics = test_dict.get('metrics')
 
             if (i + 1) == len(dataloader) and not dataloader.drop_last:
@@ -59,7 +58,8 @@ class BasePredictor:
 
         Returns:
             test_dict (dict): The computed results.
-                test_dict['losses'] (dict)
+                test_dict['loss'] (torch.Tensor)
+                test_dict['losses'] (dict, optional)
                 test_dict['metrics'] (dict, optional)
         """
         raise NotImplementedError

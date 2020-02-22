@@ -51,7 +51,12 @@ class Monitor:
         Returns:
             path (Path): The path to save the model checkpoint.
         """
-        score = valid_log[self.target]
+        score = valid_log.get(self.target)
+        if score is None:
+            raise KeyError(f"The valid_log has no key named '{self.target}'. "
+                           f'Its keys: {list(valid_log.keys())}.\n'
+                           'Please check the returned keys as defined in MyTrainer._valid_step().')
+
         if self.mode == 'max' and score > self.best:
             self.best = score
             self.not_improved_count = 0

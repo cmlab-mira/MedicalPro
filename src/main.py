@@ -4,9 +4,9 @@ import logging
 import random
 import re
 import torch
-import yaml
 from box import Box
 from pathlib import Path
+from shutil import copyfile
 
 import src
 
@@ -18,9 +18,8 @@ def main(args):
     if not saved_dir.is_dir():
         saved_dir.mkdir(parents=True)
 
-    logging.info(f'Save the config to "{config.main.saved_dir}".')
-    with open(saved_dir / 'config.yaml', 'w+') as f:
-        yaml.dump(config.to_dict(), f, default_flow_style=False)
+    logging.info(f'Save the config to "{saved_dir}".')
+    copyfile(args.config_path, saved_dir / 'config.yaml')
 
     if not args.test:
         if config.trainer.kwargs.get('use_amp', False):

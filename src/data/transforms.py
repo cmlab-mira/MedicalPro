@@ -36,40 +36,38 @@ class Compose:
                 raise TypeError('All of the transforms should be BaseTransform.')
             self.transforms = tuple(transforms)
 
-    def __call__(self, *imgs, **transform_kwargs):
+    def __call__(self, *imgs, **transforms_kwargs):
         """
         Args:
             imgs (tuple of numpy.ndarray): The images to be transformed.
-            transform_kwargs (dict): The runtime kwargs for each transforms.
+            transforms_kwargs (dict): The runtime kwargs for each transforms.
 
         Returns:
             imgs (tuple): The transformed images.
         """
         for transform in self.transforms:
-            kwargs = transform_kwargs.get(transform.__class__.__name__, {})
-            tags = kwargs.get('tags', tuple(True for _ in range(len(imgs))))
-            if len(tags) != len(imgs):
-                raise ValueError('The number of the tags should be the same as the images.')
-            if not all(tag in [True, False] for tag in tags):
-                raise ValueError('All of the tags should be either True or False.')
-            if not any(tags):
-                raise ValueError('The tags should not be all False.')
+            kwargs = transforms_kwargs.get(transform.__class__.__name__, {})
+            transformed = kwargs.pop('transformed', tuple(True for _ in range(len(imgs))))
+            if len(transformed) != len(imgs):
+                raise ValueError('The number of the transformed should be the same as the images.')
+            if not all(_transformed in [True, False] for _transformed in transformed):
+                raise ValueError('All of the transformed should be either True or False.')
+            if not any(transformed):
+                raise ValueError('The transformed should not be all False.')
 
-            if all(tags):
+            if all(transformed):
                 imgs = transform(*imgs, **kwargs)
             else:
-                _imgs = tuple(img for img, tag in zip(imgs, tags) if tag)
-                _imgs = transform(*_imgs, **kwargs)
-                imgs = np.array(imgs)
-                imgs[np.array(tags)] = _imgs
-                imgs = tuple(imgs)
+                transformed_imgs, untransformed_imgs = self._split_imgs(imgs, transformed)
+                transformed_imgs = transform(*transformed_imgs, **kwargs)
+                imgs = self._reassemble_imgs(transformed_imgs, untransformed_imgs, transformed)
         return imgs
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '('
-        for t in self.transforms:
+        for transform in self.transforms:
             format_string += '\n'
-            format_string += '    {0}'.format(t)
+            format_string += f'    {transform}'
         format_string += '\n)'
         return format_string
 
@@ -93,6 +91,41 @@ class Compose:
             transform_cls = getattr(src.data.transforms, transform.name)
             _transforms.append(transform_cls(**transform.get('kwargs', {})))
         return cls(tuple(_transforms))
+
+    @staticmethod
+    def _split_imgs(imgs, transformed):
+        """Split the images into transformed and untransformed ones by condition.
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be splited.
+            transformed (tuple of bool): Specify which image should be transformed.
+
+        Returns:
+            transformed_imgs (tuple of numpy.ndarray): The images should be transformed.
+            untransformed_imgs (tuple of numpy.ndarray): The images should not be transformed.
+        """
+        transformed_imgs, untransformed_imgs = [], []
+        for img, _transformed in zip(imgs, transformed):
+            (transformed_imgs if _transformed else untransformed_imgs).append(img)
+        return tuple(transformed_imgs), tuple(untransformed_imgs)
+
+    @staticmethod
+    def _reassemble_imgs(transformed_imgs, untransformed_imgs, transformed):
+        """Reassemble the images from transformed and untransformed ones by condition.
+        Args:
+            transformed_imgs (tuple of numpy.ndarray): The images have been transformed.
+            untransformed_imgs (tuple of numpy.ndarray): The images have not been transformed.
+            transformed (tuple of bool): Specify which image has been transformed.
+
+        Returns:
+            imgs (tuple of numpy.ndarray): The reassembled images.
+        """
+        transformed_imgs_iterator = iter(transformed_imgs)
+        untransformed_imgs_iterator = iter(untransformed_imgs)
+        imgs = tuple(
+            next(transformed_imgs_iterator) if _transformed else next(untransformed_imgs_iterator)
+            for _transformed in transformed
+        )
+        return imgs
 
 
 class BaseTransform:
@@ -191,7 +224,9 @@ class Normalize(BaseTransform):
                 stds = img.std(axis=axis)
                 img = self._normalize(img, means, stds)
             else:
-                img = self._normalize(img, self.means, self.stds)
+                img = self._normalize(img,
+                                      self.means.astype(img.dtype),
+                                      self.stds.astype(img.dtype))
             _imgs.append(img)
         imgs = tuple(_imgs)
         return imgs
@@ -240,7 +275,7 @@ class MinMaxScale(BaseTransform):
         if min_ > max_:
             raise ValueError('The minimum value of value_range should be smaller than the maximum value. '
                              f'Got {value_range}.')
-        self.value_range = value_range
+        self.value_range = np.array(value_range)
 
     def __call__(self, *imgs):
         """
@@ -261,9 +296,12 @@ class MinMaxScale(BaseTransform):
                 axis = tuple(range(img.ndim - 1)) if self.per_channel else tuple(range(img.ndim))
                 mins = img.min(axis=axis)
                 maxs = img.max(axis=axis)
-                img = self._min_max_scale(img, mins, maxs, self.value_range)
+                img = self._min_max_scale(img, mins, maxs, self.value_range.astype(img.dtype))
             else:
-                img = self._min_max_scale(img, self.mins, self.maxs, self.value_range)
+                img = self._min_max_scale(img,
+                                          self.mins.astype(img.dtype),
+                                          self.maxs.astype(img.dtype),
+                                          self.value_range.astype(img.dtype))
             _imgs.append(img)
         imgs = tuple(_imgs)
         return imgs
@@ -275,7 +313,7 @@ class MinMaxScale(BaseTransform):
             img (numpy.ndarray): The image to be scaled.
             mins (numpy.ndarray): The minimum values for each channel.
             maxs (numpy.ndarray): The maximum values for each channel.
-            value_range (sequence): The minimum and minimum value after scaling.
+            value_range (numpy.ndarray): The minimum and minimum value after scaling.
 
         Returns:
             img (numpy.ndarray): The scaled image.
@@ -423,9 +461,9 @@ class RandomCrop(BaseTransform):
         ndim = imgs[0].ndim
         if len(self.size) != (ndim - 1):
             raise ValueError('The dimensions of the cropped size should be the same as the image.')
-        if any(i < j for i, j in zip(imgs[0].shape[:-1], size)):
+        if any(i < j for i, j in zip(imgs[0].shape[:-1], self.size)):
             raise ValueError(f'The image size {imgs[0].shape[:-1]} is smaller than '
-                             f'the cropped size {size}. Please use a smaller cropped size.')
+                             f'the cropped size {self.size}. Please use a smaller cropped size.')
 
         if ndim == 3:
             h0, hn, w0, wn = self._get_coordinates(imgs[0], self.size)

@@ -216,9 +216,9 @@ class Base:
                              f"Its attributes: {list(self.__dict__.keys())}.")
 
 
-LossFns = type('LossFns', (Base,))
-LossWeights = type('LossWeights', (Base,))
-MetricFns = type('MetricFns', (Base,))
+LossFns = type('LossFns', (Base,), {})
+LossWeights = type('LossWeights', (Base,), {})
+MetricFns = type('MetricFns', (Base,), {})
 
 
 def _parse_args():

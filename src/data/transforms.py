@@ -141,7 +141,8 @@ class BaseTransform:
 
 class ToTensor(BaseTransform):
     """Convert a tuple of numpy.ndarray to a tuple of torch.Tensor.
-    Default is to transform a tuple of numpy.ndarray to a tuple of channel-first torch.FloatTensor.
+    Default is to transform a tuple of numpy.ndarray to a tuple of channel-first torch.Tensor
+    which infer data types from the tuple of numpy.ndarray.
 
     Args:
         channel_first (bool, optional): Whether the data format of the output data is channel-first,
@@ -157,7 +158,7 @@ class ToTensor(BaseTransform):
         Args:
             imgs (tuple of numpy.ndarray): The images to be converted.
             dtypes (sequence of torch.dtype, optional): The dtypes of the converted images
-                (default: None, transform all the images' dtype to torch.float).
+                (default: None, infer data types from the images).
 
         Returns:
             imgs (tuple of torch.Tensor): The converted images.
@@ -168,7 +169,7 @@ class ToTensor(BaseTransform):
             raise ValueError('All of the images should be 2D or 3D with channels.')
 
         if dtypes is None:
-            dtypes = tuple(torch.float() for _ in range(len(imgs)))
+            dtypes = tuple(None for _ in range(len(imgs)))
         if len(dtypes) != len(imgs):
             raise ValueError('The number of the dtypes should be the same as the images.')
         imgs = tuple(torch.as_tensor(img, dtype=dtype) for img, dtype in zip(imgs, dtypes))

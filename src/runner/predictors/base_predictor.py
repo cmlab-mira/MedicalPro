@@ -37,7 +37,10 @@ class BasePredictor:
         for i, batch in enumerate(pbar):
             with torch.no_grad():
                 test_dict = self._test_step(batch)
-                loss = test_dict['loss']
+                loss = test_dict.get('loss')
+                if loss is None:
+                    raise KeyError(f"The test_dict must have the key named 'loss'. "
+                                   'Please check the returned keys as defined in MyPredictor._test_step().')
                 losses = test_dict.get('losses')
                 metrics = test_dict.get('metrics')
 

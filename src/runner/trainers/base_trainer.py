@@ -86,7 +86,7 @@ class BaseTrainer:
             if self.epoch % self.valid_freq == 0:
                 # Save the best checkpoint.
                 saved_path = self.monitor.is_best(valid_log)
-                if saved_path:
+                if saved_path is not None:
                     LOGGER.info(f'Save the best checkpoint to {saved_path} '
                                 f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
                     self.save(saved_path)
@@ -97,7 +97,7 @@ class BaseTrainer:
 
                 # Save the regular checkpoint.
                 saved_path = self.monitor.is_saved(self.epoch)
-                if saved_path:
+                if saved_path is not None:
                     LOGGER.info(f'Save the checkpoint to {saved_path}.')
                     self.save(saved_path)
 
@@ -108,7 +108,7 @@ class BaseTrainer:
             else:
                 # Save the regular checkpoint.
                 saved_path = self.monitor.is_saved(self.epoch)
-                if saved_path:
+                if saved_path is not None:
                     LOGGER.info(f'Save the checkpoint to {saved_path}.')
                     self.save(saved_path)
 
@@ -132,7 +132,7 @@ class BaseTrainer:
             dataloader_iterator = iter(dataloader)
             outter_pbar = tqdm(total=((len(dataloader) + dataloader.grad_accumulation_steps() - 1)
                                       // dataloader.grad_accumulation_steps()),
-                               desc=mode,
+                               desc='train',
                                ascii=True)
             inner_pbar = tqdm(total=math.ceil(dataloader.grad_accumulation_steps(0)),
                               desc='grad_accumulation',
@@ -143,7 +143,10 @@ class BaseTrainer:
             for i in range(len(dataloader)):
                 batch = next(dataloader_iterator)
                 train_dict = self._train_step(batch)
-                loss = train_dict['loss']
+                loss = train_dict.get('loss')
+                if loss is None:
+                    raise KeyError(f"The train_dict must have the key named 'loss'. "
+                                   'Please check the returned keys as defined in MyTrainer._train_step().')
                 losses = train_dict.get('losses')
                 metrics = train_dict.get('metrics')
                 outputs = train_dict.get('outputs')
@@ -182,13 +185,16 @@ class BaseTrainer:
         else:
             self.net.eval()
             dataloader = self.valid_dataloader
-            pbar = tqdm(dataloader, desc=mode, ascii=True)
+            pbar = tqdm(dataloader, desc='valid', ascii=True)
 
             epoch_log = EpochLog()
             for i, batch in enumerate(pbar):
                 with torch.no_grad():
                     valid_dict = self._valid_step(batch)
-                    loss = valid_dict['loss']
+                    loss = valid_dict.get('loss')
+                    if loss is None:
+                        raise KeyError(f"The valid_dict must have the key named 'loss'. "
+                                       'Please check the returned keys as defined in MyTrainer._valid_step().')
                     losses = valid_dict.get('losses')
                     metrics = valid_dict.get('metrics')
                     outputs = valid_dict.get('outputs')

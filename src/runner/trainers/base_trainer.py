@@ -16,6 +16,7 @@ LOGGER = logging.getLogger(__name__.split('.')[-1])
 class BaseTrainer:
     """The base class for all trainers.
     Args:
+        saved_dir (Path): The root directory of the saved data.
         device (torch.device): The device.
         train_dataloader (Dataloader): The training dataloader.
         valid_dataloader (Dataloader): The validation dataloader.
@@ -33,10 +34,11 @@ class BaseTrainer:
         opt_level (str): The optimization level of apex.amp (default: 'O1').
     """
 
-    def __init__(self, device, train_dataloader, valid_dataloader,
+    def __init__(self, saved_dir, device, train_dataloader, valid_dataloader,
                  net, loss_fns, loss_weights, metric_fns, optimizer,
                  lr_scheduler, logger, monitor, num_epochs,
                  valid_freq=1, use_amp=False, opt_level='O1'):
+        self.saved_dir = saved_dir
         self.device = device
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader

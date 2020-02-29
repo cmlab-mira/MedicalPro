@@ -12,7 +12,7 @@ class EpochLog:
         self.log = None
 
     def _init_log(self, losses=None, metrics=None):
-        """Initilize the log.
+        """Initialize the log.
         Args:
             losses (dict, optional): The computed losses (default: None).
             metrics (dict, optional): The computed metrics (default: None).

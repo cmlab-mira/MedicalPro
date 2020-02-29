@@ -118,6 +118,7 @@ def main(args):
 
         logging.info('Create the trainer.')
         kwargs = {
+            'saved_dir': saved_dir,
             'device': device,
             'train_dataloader': train_dataloader,
             'valid_dataloader': valid_dataloader,
@@ -189,6 +190,7 @@ def main(args):
 
         logging.info('Create the predictor.')
         kwargs = {
+            'saved_dir': saved_dir,
             'device': device,
             'test_dataloader': test_dataloader,
             'net': net,

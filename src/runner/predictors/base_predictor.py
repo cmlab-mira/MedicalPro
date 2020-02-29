@@ -10,6 +10,7 @@ LOGGER = logging.getLogger(__name__.split('.')[-1])
 class BasePredictor:
     """The base class for all predictors.
     Args:
+        saved_dir (Path): The root directory of the saved data.
         device (torch.device): The device.
         test_dataloader (Dataloader): The testing dataloader.
         net (BaseNet): The network architecture.
@@ -18,7 +19,9 @@ class BasePredictor:
         metric_fns (MetricFns): The metric functions.
     """
 
-    def __init__(self, device, test_dataloader, net, loss_fns, loss_weights, metric_fns):
+    def __init__(self, saved_dir, device, test_dataloader,
+                 net, loss_fns, loss_weights, metric_fns):
+        self.saved_dir = saved_dir
         self.device = device
         self.test_dataloader = test_dataloader
         self.net = net.to(device)
@@ -37,10 +40,7 @@ class BasePredictor:
         for i, batch in enumerate(pbar):
             with torch.no_grad():
                 test_dict = self._test_step(batch)
-                loss = test_dict.get('loss')
-                if loss is None:
-                    raise KeyError(f"The test_dict must have the key named 'loss'. "
-                                   'Please check the returned keys as defined in MyPredictor._test_step().')
+                loss = test_dict['loss']
                 losses = test_dict.get('losses')
                 metrics = test_dict.get('metrics')
 

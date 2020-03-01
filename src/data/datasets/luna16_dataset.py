@@ -17,11 +17,12 @@ class Luna16Dataset(BaseDataset):
         transforms (list of Box): The preprocessing techniques applied to the data.
         augments (list of Box): The augmentation techniques applied to the training data (default: None).
     """
-    def __init__(self, data_dir, transforms, positive_ratio=None, train_fold=None, 
-                 valid_fold=None, test_fold=None, augments=None, **kwargs):
+    def __init__(self, data_dir, transforms, positive_ratio=None, img_size=[16, 16, 16],
+                 train_fold=None, valid_fold=None, test_fold=None, augments=None, **kwargs):
         super().__init__(**kwargs)
         self.data_dir = Path(data_dir)
         self.positive_ratio = positive_ratio
+        self.img_size = img_size
         self.transforms = compose(transforms)
         self.augments = compose(augments)
         
@@ -44,7 +45,7 @@ class Luna16Dataset(BaseDataset):
             
         positive_data_paths = np.array(positive_data_paths)
         negative_data_paths = np.array(negative_data_paths)
-        if positive_ratio is not None:
+        if (positive_ratio is not None) and (self.type == 'train'):
             negative_data_paths = np.random.choice(negative_data_paths, int(len(positive_data_paths) / positive_ratio), replace=False)
         self.data_paths = np.concatenate((positive_data_paths, negative_data_paths), axis=-1)
 
@@ -56,52 +57,19 @@ class Luna16Dataset(BaseDataset):
         img = np.load(path)[..., None]
         label = 0 if path.parts[-3] == 'negative' else 1
         
-        """
-        sid = path.name.replace('.mhd', '')
-        
-        if random.random() < self.positive_prob:
-            # Positive sampling
-            df = pd.read_csv(self.positive_csv)
-            label = 1
-        else:
-            # Negative sampling
-            df = pd.read_csv(self.negative_csv)
-            label = 0
-            
-        # Get the candidate information
-        info = df[df.seriesuid == sid]
-        try:
-            word_coord = np.array(info.values[0][1:4])
-        except:
-            # There is no positive sample belonging to that patient. 
-            # Instead, use the negative sample
-            df = pd.read_csv(self.negative_csv)
-            label = 0
-            info = df[df.seriesuid == sid]
-            word_coord = np.array(info.values[0][1:4])
-            
-        # Read the CT image
-        itk_img = sitk.ReadImage(str(path))
-        origin = np.array(list(itk_img.GetOrigin()))
-        spacing = np.array(list(itk_img.GetSpacing()))
-        img_array = sitk.GetArrayFromImage(itk_img)
-        img_array = img_array.transpose(2, 1, 0)
-        
-        # Execute the preprocessing according to the ModelGenesis guildlines
-        # - all the intensity values be clipped on the min (-1000) and max (+1000)
-        img_array = img_array.clip(-1000, 1000)
-        # - scale between 0 and 1
-        img_array = (img_array - img_array.min()) / (img_array.max() - img_array.min())
-        
-        voxel_coord = self._world_to_voxel_coord(word_coord, origin, spacing)
-        cropped_img = self._crop(img_array, voxel_coord)[..., None] # H, W, D, C
-        """
-        
-        if self.type == 'Train' and self.augments is not None:
+        if (self.type == 'train') and (self.augments is not None):
             img = self.augments(img)
+        
+        if not np.array_equal(img.shape[:-1], self.img_size):
+            img = self._crop(img, self.img_size)
+            
         data = self.transforms(img, dtypes=[torch.float]).permute(3, 2, 0, 1).contiguous()
         label = self.transforms(np.array([label]), dtypes=[torch.long])
-        return {'data': data, 'label': label}
+        if self.type == 'test':
+            cid = int(path.stem.split('_')[1])
+            return {'data': data, 'label': label, 'cid': cid}
+        else:
+            return {'data': data, 'label': label}
     
     def _world_to_voxel_coord(self, world_coord, origin, spacing):
         stretched_voxel_coord = np.absolute(world_coord - origin)
@@ -109,25 +77,16 @@ class Luna16Dataset(BaseDataset):
         voxel_coord = [np.round(coord).astype(np.int) for coord in voxel_coord]
         return voxel_coord
     
-    def _crop(self, img, coord):
-        x_start, x_end = coord[0]-self.crop_size[0]//2, coord[0]+self.crop_size[0]//2
-        y_start, y_end = coord[1]-self.crop_size[1]//2, coord[1]+self.crop_size[1]//2
-        z_start, z_end = coord[2]-self.crop_size[2]//2, coord[2]+self.crop_size[2]//2
-        
-        if x_start < 0:
-            x_start, x_end = 0, self.crop_size[0]
-        if x_end >= img.shape[0]:
-            x_start, x_end = img.shape[0]-self.crop_size[0], img.shape[0]
-        
-        if y_start < 0:
-            y_start, y_end = 0, self.crop_size[1]
-        if y_end >= img.shape[1]:
-            y_start, y_end = img.shape[1]-self.crop_size[1], img.shape[1]
-        
-        if z_start < 0:
-            z_start, z_end = 0, self.crop_size[2]
-        if z_end >= img.shape[2]:
-            z_start, z_end = img.shape[2]-self.crop_size[2], img.shape[2]
-            
-        cropped_img = img[x_start:x_end, y_start:y_end, z_start:z_end]
+    def _crop(self, img, size):
+        if img.ndim == 3:
+            H, W, _ = img.shape
+            x_start, x_end = H // 2 - size[0] // 2, H // 2 + size[0] // 2
+            y_start, y_end = W // 2 - size[1] // 2, W // 2 + size[1] // 2
+            cropped_img = img[x_start:x_end, y_start:y_end]
+        elif img.ndim == 4:
+            H, W, D, _ = img.shape
+            x_start, x_end = H // 2 - size[0] // 2, H // 2 + size[0] // 2
+            y_start, y_end = W // 2 - size[1] // 2, W // 2 + size[1] // 2
+            z_start, z_end = D // 2 - size[2] // 2, D // 2 + size[2] // 2
+            cropped_img = img[x_start:x_end, y_start:y_end, z_start:z_end]
         return cropped_img

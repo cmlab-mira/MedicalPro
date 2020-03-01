@@ -408,7 +408,13 @@ class RandomVerticalFlip(BaseTransform):
 
 
 class RandomRotation(BaseTransform):
-    """
+    """Do the random rotation.
+    Args:
+        prob (float, optional): The probability of applying the flip (default: 0.5).
+        min_angle (float, optional): The minimum of the rotation angle.
+        max_angle (float, optional): The maximum of the rotation angle.
+        rotation_angle (tuple of float, optional): The rotation angle range.
+        spatial_rank (int, optional): The rank of the image.
     """
 
     def __init__(self, prob=0.5, min_angle=None, max_angle=None, rotation_angle=None, spatial_rank=3):
@@ -528,7 +534,7 @@ class RandomRotation(BaseTransform):
     
 
 class NonLinearTransform(BaseTransform):
-    """
+    """Apply the non-linear intensity transformation.
     Args:
         prob (float, optional): The probability of applying the flip (default: 0.5).
     """
@@ -601,7 +607,8 @@ class NonLinearTransform(BaseTransform):
 
 
 class LocalPixelShuffling(BaseTransform):
-    """
+    """Randomly shuffle the local patches which allows the model to learn the global geometry 
+    and spatial layout of organs as well as the local shape and texture of organs.
     Args:
         prob (float, optional): The probability of applying the flip (default: 0.5).
     """
@@ -683,7 +690,7 @@ class LocalPixelShuffling(BaseTransform):
 
 
 class Painting(BaseTransform):
-    """
+    """Randomly replace the intensity values of the inner or outer pixels with a constant value.
     Args:
         prob (float, optional): The probability of applying the flip (default: 0.5).
         inpaint_rate (float, optional): The rate of applying the in-painting. The rate of out-painting is `1 - inpaint_rate`. (default: 0.2).

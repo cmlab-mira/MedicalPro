@@ -40,8 +40,7 @@ class Dataloader(DataLoader):
                                                                  last_batch_size=last_batch_size)
 
     def __len__(self):
-        if (getattr(self, 'grad_accumulation_steps', None) is not None
-                and self.drop_last and self.grad_accumulation_steps() != 1):
+        if (hasattr(self, 'grad_accumulation_steps') and self.drop_last and self.grad_accumulation_steps() != 1):
             return len(self._index_sampler) // self.grad_accumulation_steps() * self.grad_accumulation_steps()
         else:
             return len(self._index_sampler)

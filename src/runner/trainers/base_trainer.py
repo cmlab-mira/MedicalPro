@@ -29,7 +29,6 @@ class BaseTrainer:
         logger (BaseLogger): The object for recording the log information.
         monitor (Monitor): The object to determine whether to save the checkpoint.
         num_epochs (int): The total number of training epochs.
-        valid_freq (int): The validation frequency (default: 1).
         use_amp (bool): Whether to use the Automatic Mixed Precision training (default: False).
         opt_level (str): The optimization level of apex.amp (default: 'O1').
     """
@@ -37,7 +36,7 @@ class BaseTrainer:
     def __init__(self, saved_dir, device, train_dataloader, valid_dataloader,
                  net, loss_fns, loss_weights, metric_fns, optimizer,
                  lr_scheduler, logger, monitor, num_epochs,
-                 valid_freq=1, use_amp=False, opt_level='O1'):
+                 use_amp=False, opt_level='O1'):
         self.saved_dir = saved_dir
         self.device = device
         self.train_dataloader = train_dataloader
@@ -53,7 +52,6 @@ class BaseTrainer:
         self.logger = logger
         self.monitor = monitor
         self.num_epochs = num_epochs
-        self.valid_freq = valid_freq
         self.use_amp = use_amp
         self.epoch = 1
 
@@ -70,7 +68,7 @@ class BaseTrainer:
             LOGGER.info(f'Epoch {self.epoch}.')
             train_log, train_batch, train_outputs = self._run_epoch('train')
             LOGGER.info(f'Train log: {train_log}.')
-            if self.epoch % self.valid_freq == 0:
+            if self.epoch % self.monitor.valid_freq == 0:
                 valid_log, valid_batch, valid_outputs = self._run_epoch('valid')
                 LOGGER.info(f'Valid log: {valid_log}.')
             else:
@@ -85,7 +83,7 @@ class BaseTrainer:
             self.logger.write(self.epoch, train_log, train_batch, train_outputs,
                               valid_log, valid_batch, valid_outputs)
 
-            if self.epoch % self.valid_freq == 0:
+            if self.epoch % self.monitor.valid_freq == 0:
                 # Save the best checkpoint.
                 saved_path = self.monitor.is_best(valid_log)
                 if saved_path is not None:
@@ -93,7 +91,7 @@ class BaseTrainer:
                                 f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
                     self.save(saved_path)
                 else:
-                    epoch = self.epoch - self.monitor.not_improved_count * self.valid_freq
+                    epoch = self.epoch - self.monitor.not_improved_count * self.monitor.valid_freq
                     LOGGER.info(f'The best checkpoint is remained at epoch {epoch} '
                                 f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
 

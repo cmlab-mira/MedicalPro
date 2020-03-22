@@ -4,6 +4,7 @@ import logging
 import random
 import torch
 from box import Box
+from collections import namedtuple
 from pathlib import Path
 from shutil import copyfile
 
@@ -78,24 +79,38 @@ def main(args):
         net = _get_instance(src.model.nets, config.net).to(device)
 
         logging.info('Create the loss functions and corresponding weights.')
-        loss_fns, loss_weights = LossFns(), LossWeights()
+        loss_names, loss_fns, loss_weights = [], [], []
         defaulted_loss_fns = tuple(loss_fn for loss_fn in dir(torch.nn) if 'Loss' in loss_fn)
         for config_loss in config.losses:
+            loss_name = config_loss.get('alias', config_loss.name)
             if config_loss.name in defaulted_loss_fns:
                 loss_fn = _get_instance(torch.nn, config_loss).to(device)
             else:
                 loss_fn = _get_instance(src.model.losses, config_loss).to(device)
             loss_weight = config_loss.get('weight', 1 / len(config.losses))
-            name = config_loss.get('alias', config_loss.name)
-            setattr(loss_fns, name, loss_fn)
-            setattr(loss_weights, name, loss_weight)
+            loss_names.append(loss_name)
+            loss_fns.append(loss_fn)
+            loss_weights.append(loss_weight)
+        LossFns, LossWeights = namedtuple('LossFns', loss_names), namedtuple('LossWeights', loss_names)
+        loss_fns, loss_weights = LossFns(*loss_fns), LossWeights(*loss_weights)
 
-        logging.info('Create the metric functions.')
-        metric_fns = MetricFns()
-        for config_metric in config.metrics:
-            metric_fn = _get_instance(src.model.metrics, config_metric).to(device)
-            name = config_metric.get('alias', config_metric.name)
-            setattr(metric_fns, name, metric_fn)
+        if 'metrics' in config:
+            logging.info('Create the metric functions.')
+            metric_names, metric_fns = [], []
+            defaulted_metric_fns = tuple(metric_fn for metric_fn in dir(torch.nn) if 'Loss' in metric_fn)
+            for config_metric in config.metrics:
+                metric_name = config_metric.get('alias', config_metric.name)
+                if config_metric.name in defaulted_metric_fns:
+                    metric_fn = _get_instance(torch.nn, config_metric).to(device)
+                else:
+                    metric_fn = _get_instance(src.model.metrics, config_metric).to(device)
+                metric_names.append(metric_name)
+                metric_fns.append(metric_fn)
+            MetricFns = namedtuple('MetricFns', metric_names)
+            metric_fns = MetricFns(*metric_fns)
+        else:
+            logging.info('Not using the metric functions.')
+            metric_fns = None
 
         logging.info('Create the optimizer.')
         optimizer = _get_instance(torch.optim, config.optimizer, net.parameters())
@@ -169,24 +184,38 @@ def main(args):
         net = _get_instance(src.model.nets, config.net).to(device)
 
         logging.info('Create the loss functions and corresponding weights.')
-        loss_fns, loss_weights = LossFns(), LossWeights()
+        loss_names, loss_fns, loss_weights = [], [], []
         defaulted_loss_fns = tuple(loss_fn for loss_fn in dir(torch.nn) if 'Loss' in loss_fn)
         for config_loss in config.losses:
+            loss_name = config_loss.get('alias', config_loss.name)
             if config_loss.name in defaulted_loss_fns:
                 loss_fn = _get_instance(torch.nn, config_loss).to(device)
             else:
                 loss_fn = _get_instance(src.model.losses, config_loss).to(device)
             loss_weight = config_loss.get('weight', 1 / len(config.losses))
-            name = config_loss.get('alias', config_loss.name)
-            setattr(loss_fns, name, loss_fn)
-            setattr(loss_weights, name, loss_weight)
+            loss_names.append(loss_name)
+            loss_fns.append(loss_fn)
+            loss_weights.append(loss_weight)
+        LossFns, LossWeights = namedtuple('LossFns', loss_names), namedtuple('LossWeights', loss_names)
+        loss_fns, loss_weights = LossFns(*loss_fns), LossWeights(*loss_weights)
 
-        logging.info('Create the metric functions.')
-        metric_fns = MetricFns()
-        for config_metric in config.metrics:
-            metric_fn = _get_instance(src.model.metrics, config_metric).to(device)
-            name = config_metric.get('alias', config_metric.name)
-            setattr(metric_fns, name, metric_fn)
+        if 'metrics' in config:
+            logging.info('Create the metric functions.')
+            metric_names, metric_fns = [], []
+            defaulted_metric_fns = tuple(metric_fn for metric_fn in dir(torch.nn) if 'Loss' in metric_fn)
+            for config_metric in config.metrics:
+                metric_name = config_metric.get('alias', config_metric.name)
+                if config_metric.name in defaulted_metric_fns:
+                    metric_fn = _get_instance(torch.nn, config_metric).to(device)
+                else:
+                    metric_fn = _get_instance(src.model.metrics, config_metric).to(device)
+                metric_names.append(metric_name)
+                metric_fns.append(metric_fn)
+            MetricFns = namedtuple('MetricFns', metric_names)
+            metric_fns = MetricFns(*metric_fns)
+        else:
+            logging.info('Not using the metric functions.')
+            metric_fns = None
 
         logging.info('Create the predictor.')
         kwargs = {
@@ -207,20 +236,6 @@ def main(args):
         logging.info('Start testing.')
         predictor.predict()
         logging.info('End testing.')
-
-
-class Base:
-    """The Base class for easy debugging.
-    """
-
-    def __getattr__(self, name):
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'. "
-                             f"Its attributes: {list(self.__dict__.keys())}.")
-
-
-LossFns = type('LossFns', (Base,), {})
-LossWeights = type('LossWeights', (Base,), {})
-MetricFns = type('MetricFns', (Base,), {})
 
 
 def _parse_args():

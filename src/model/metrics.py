@@ -16,13 +16,15 @@ class Dice(nn.Module):
     def forward(self, output, target):
         """
         Args:
-            output (torch.Tensor) (N, C, *): The output probability.
+            output (torch.Tensor) (N, C, *) or (N, 1, *): The output probability.
             target (torch.LongTensor) (N, 1, *): The target where each value is between 0 and C-1.
 
         Returns:
             metric (torch.Tensor) (C): The dice scores for each class.
         """
         # Get the one-hot encoding of the prediction and the ground truth label.
+        if output.size(1) == 1:  # (N, 1, *) --> (N, 2, *)
+            pred = torch.cat((1 - output, output), dim=1)
         pred = output.argmax(dim=1, keepdim=True)
         pred = torch.zeros_like(output).scatter_(1, pred, 1)
         target = torch.zeros_like(output).scatter_(1, target, 1)

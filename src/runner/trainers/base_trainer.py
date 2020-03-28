@@ -3,6 +3,7 @@ import logging
 import math
 import random
 import torch
+import numpy as np
 from torch.optim.lr_scheduler import (
     CyclicLR, OneCycleLR, CosineAnnealingWarmRestarts, ReduceLROnPlateau
 )
@@ -249,6 +250,7 @@ class BaseTrainer:
             'monitor': self.monitor.state_dict(),
             'epoch': self.epoch,
             'random_state': random.getstate(),
+            'np_random_state': np.random.get_state(),
             'torch_random_state': torch.get_rng_state(),
             'torch_cuda_random_state': torch.cuda.get_rng_state_all()
         }, path)
@@ -279,5 +281,6 @@ class BaseTrainer:
         self.monitor.load_state_dict(checkpoint['monitor'])
         self.epoch = checkpoint['epoch'] + 1
         random.setstate(checkpoint['random_state'])
+        np.random.set_state(checkpoint['np_random_state'])
         torch.set_rng_state(checkpoint['torch_random_state'])
         torch.cuda.set_rng_state_all(checkpoint['torch_cuda_random_state'])

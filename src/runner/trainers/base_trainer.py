@@ -35,9 +35,8 @@ class BaseTrainer:
     """
 
     def __init__(self, saved_dir, device, train_dataloader, valid_dataloader,
-                 net, loss_fns, loss_weights, metric_fns, optimizer,
-                 lr_scheduler, logger, monitor, num_epochs,
-                 use_amp=False, opt_level='O1'):
+                 net, loss_fns, loss_weights, metric_fns, optimizer, lr_scheduler,
+                 logger, monitor, num_epochs, use_amp=False, opt_level='O1'):
         self.saved_dir = saved_dir
         self.device = device
         self.train_dataloader = train_dataloader
@@ -86,20 +85,19 @@ class BaseTrainer:
 
             if self.epoch % self.monitor.valid_freq == 0:
                 # Save the best checkpoint.
-                saved_path = self.monitor.is_best(valid_log)
+                saved_path = self.monitor.is_best(self.epoch, valid_log)
                 if saved_path is not None:
                     LOGGER.info(f'Save the best checkpoint to {saved_path} '
-                                f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                                f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best_score}).')
                     self.save(saved_path)
                 else:
-                    epoch = self.epoch - self.monitor.not_improved_count * self.monitor.valid_freq
-                    LOGGER.info(f'The best checkpoint is remained at epoch {epoch} '
-                                f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                    LOGGER.info(f'The best checkpoint is remained at epoch {self.monitor.best_epoch} '
+                                f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best_score}).')
 
                 # Save the regular checkpoint.
                 saved_path = self.monitor.is_saved(self.epoch)
                 if saved_path is not None:
-                    LOGGER.info(f'Save the checkpoint to {saved_path}.')
+                    LOGGER.info(f'Save the regular checkpoint to {saved_path}.')
                     self.save(saved_path)
 
                 # Early stop.
@@ -110,7 +108,7 @@ class BaseTrainer:
                 # Save the regular checkpoint.
                 saved_path = self.monitor.is_saved(self.epoch)
                 if saved_path is not None:
-                    LOGGER.info(f'Save the checkpoint to {saved_path}.')
+                    LOGGER.info(f'Save the regular checkpoint to {saved_path}.')
                     self.save(saved_path)
 
             self.epoch += 1

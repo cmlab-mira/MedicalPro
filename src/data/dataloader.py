@@ -58,7 +58,7 @@ class Dataloader(DataLoader):
         """
         worker_info = torch.utils.data.get_worker_info()
         if worker_info is not None:
-            seed = worker_info.seed % (2 ** 32)
+            seed = worker_info.seed % (2 ** 32)  # Avoid ValueError: Seed must be between 0 and 2**32 - 1.
             np.random.seed(seed)
 
 

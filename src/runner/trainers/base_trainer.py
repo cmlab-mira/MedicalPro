@@ -65,6 +65,7 @@ class BaseTrainer:
         """
         while self.epoch <= self.num_epochs:
             # Do training and validation.
+            print(end='\n\n')
             LOGGER.info(f'Epoch {self.epoch}.')
             train_log, train_batch, train_outputs = self._run_epoch('train')
             LOGGER.info(f'Train log: {train_log}.')

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from pathlib import Path
 
 from src.model.nets import BaseNet
 
@@ -32,10 +33,15 @@ class ModelsGenesisSegNet(BaseNet):
         self.out_block = _OutBlock(num_features[1], out_channels)
 
         if weight_path is not None:
-            state_dict = self.state_dict()
-            pretrained_state_dict = torch.load(weight_path, map_location='cpu')
+            if Path(weight_path).name == 'models_genesis.pth':
+                pretrained_state_dict = torch.load(weight_path, map_location='cpu')
+            else:  # For the adapter fine-tine experiments.
+                pretrained_state_dict = torch.load(weight_path, map_location='cpu')['net']
+                pretrained_state_dict.pop('out_block.weight')
+                pretrained_state_dict.pop('out_block.bias')
             pretrained_state_dict = {key: value for key, value in pretrained_state_dict.items()
                                      if key in state_dict.keys()}
+            state_dict = self.state_dict()
             state_dict.update(pretrained_state_dict)
             self.load_state_dict(state_dict)
 
@@ -84,10 +90,13 @@ class ModelsGenesisClfNet(BaseNet):
                                                     out_features=out_channels))
 
         if weight_path is not None:
-            state_dict = self.state_dict()
-            pretrained_state_dict = torch.load(weight_path, map_location='cpu')
+            if Path(weight_path).name == 'models_genesis.pth':
+                pretrained_state_dict = torch.load(weight_path, map_location='cpu')
+            else:  # For the adapter fine-tine experiments.
+                pretrained_state_dict = torch.load(weight_path, map_location='cpu')['net']
             pretrained_state_dict = {key: value for key, value in pretrained_state_dict.items()
                                      if key in state_dict.keys()}
+            state_dict = self.state_dict()
             state_dict.update(pretrained_state_dict)
             self.load_state_dict(state_dict)
 

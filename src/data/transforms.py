@@ -1,9 +1,11 @@
+import copy
 import functools
 import random
 import torch
 import numpy as np
 import SimpleITK as sitk
 from box import BoxList
+from scipy.special import comb
 
 import src.data.transforms
 
@@ -18,6 +20,9 @@ __all__ = [
     'RandomElasticDeform',
     'RandomHorizontalFlip',
     'RandomVerticalFlip',
+    'NonLinearTransform',
+    'LocalPixelShuffling',
+    'Painting',
 ]
 
 
@@ -646,3 +651,263 @@ class RandomVerticalFlip(BaseTransform):
         if random.random() < self.prob:
             imgs = tuple(np.flip(img, axis=0) for img in imgs)
         return imgs
+
+
+class NonLinearTransform(BaseTransform):
+    """Apply the non-linear intensity transformation.
+    Args:
+        prob (float, optional): The probability of applying the flip (default: 0.5).
+    """
+
+    def __init__(self, prob=0.5):
+        self.prob = max(0, min(prob, 1))
+
+    def __call__(self, *imgs, **kwargs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be transform.
+        Returns:
+            imgs (tuple of numpy.ndarray): The transformed images.
+        """
+        if len(imgs) != 1:
+            raise ValueError('The transform only supports single image in the current version.')
+
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+
+        if random.random() < self.prob:
+            imgs = tuple([self._apply_transformation(imgs[0])])
+        return imgs
+
+    def _apply_transformation(self, img):
+        points = [[0, 0], [random.random(), random.random()], [random.random(), random.random()], [1, 1]]
+        xpoints = [p[0] for p in points]
+        ypoints = [p[1] for p in points]
+        xvals, yvals = self.bezier_curve(points, nTimes=100000)
+        if random.random() < 0.5:
+            # Half change to get flip
+            xvals = np.sort(xvals)
+        else:
+            xvals, yvals = np.sort(xvals), np.sort(yvals)
+
+        transformed_img = np.interp(img, xvals, yvals)
+        return transformed_img
+
+    @classmethod
+    def bezier_curve(cls, points, nTimes=1000):
+        """
+           Given a set of control points, return the
+           bezier curve defined by the control points.
+           Control points should be a list of lists, or list of tuples
+           such as [[1,1], 
+                    [2,3], 
+                    [4,5], ... [Xn, Yn]]
+            nTimes is the number of time steps, defaults to 1000
+            See http://processingjs.nihongoresources.com/bezierinfo/
+        """
+        num_points = len(points)
+        xpoints = np.array([p[0] for p in points])
+        ypoints = np.array([p[1] for p in points])
+
+        t = np.linspace(0.0, 1.0, nTimes)
+        polynomial_array = np.array([cls.bernstein_poly(i, num_points - 1, t) for i in range(0, num_points)])
+        xvals = np.dot(xpoints, polynomial_array)
+        yvals = np.dot(ypoints, polynomial_array)
+        return xvals, yvals
+
+    @classmethod
+    def bernstein_poly(cls, i, n, t):
+        """
+         The Bernstein polynomial of n, i as a function of t
+        """
+        return comb(n, i) * (t ** (n - i)) * ((1 - t) ** i)
+
+
+class LocalPixelShuffling(BaseTransform):
+    """Randomly shuffle the local patches which allows the model to learn the global geometry 
+    and spatial layout of organs as well as the local shape and texture of organs.
+    Args:
+        prob (float, optional): The probability of applying the flip (default: 0.5).
+    """
+
+    def __init__(self, prob=0.5):
+        self.prob = max(0, min(prob, 1))
+
+    def __call__(self, *imgs, **kwargs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be transform.
+        Returns:
+            imgs (tuple of numpy.ndarray): The transformed images.
+        """
+        if len(imgs) != 1:
+            raise ValueError('The transform only supports single image in the current version.')
+
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+
+        if random.random() < self.prob:
+            imgs = tuple([self.local_pixel_shuffling(imgs[0])])
+        return imgs
+
+    @staticmethod
+    def local_pixel_shuffling(img):
+        """
+        Args:
+            img (numpy.ndarray, ndim=3or4): The images to be transform.
+        Returns:
+            imgs (numpy.ndarray): The transformed images.
+        """
+        num_block = 10000
+        original_img = copy.deepcopy(img)
+        transformed_img = copy.deepcopy(img)
+
+        if img.ndim == 3:
+            H, W, C = img.shape
+            for _ in range(num_block):
+                block_noise_size_x = random.randint(1, H // 10)
+                block_noise_size_y = random.randint(1, W // 10)
+                noise_x = random.randint(0, H - block_noise_size_x)
+                noise_y = random.randint(0, W - block_noise_size_y)
+                window = original_img[noise_x:noise_x + block_noise_size_x,
+                                      noise_y:noise_y + block_noise_size_y]
+                window = window.flatten()
+                np.random.shuffle(window)
+                window = window.reshape((block_noise_size_x,
+                                         block_noise_size_y,
+                                         C))
+                transformed_img[noise_x:noise_x + block_noise_size_x,
+                                noise_y:noise_y + block_noise_size_y] = window
+        elif img.ndim == 4:
+            H, W, D, C = img.shape
+            for _ in range(num_block):
+                block_noise_size_x = random.randint(1, H // 10)
+                block_noise_size_y = random.randint(1, W // 10)
+                block_noise_size_z = random.randint(1, D // 10)
+                noise_x = random.randint(0, H - block_noise_size_x)
+                noise_y = random.randint(0, W - block_noise_size_y)
+                noise_z = random.randint(0, D - block_noise_size_z)
+                window = original_img[noise_x:noise_x + block_noise_size_x,
+                                      noise_y:noise_y + block_noise_size_y,
+                                      noise_z:noise_z + block_noise_size_z]
+                window = window.flatten()
+                np.random.shuffle(window)
+                window = window.reshape((block_noise_size_x,
+                                         block_noise_size_y,
+                                         block_noise_size_z,
+                                         C))
+                transformed_img[noise_x:noise_x + block_noise_size_x,
+                                noise_y:noise_y + block_noise_size_y,
+                                noise_z:noise_z + block_noise_size_z] = window
+        return transformed_img
+
+
+class Painting(BaseTransform):
+    """Randomly replace the intensity values of the inner or outer pixels with a constant value.
+    Args:
+        prob (float, optional): The probability of applying the flip (default: 0.5).
+        inpaint_rate (float, optional): The rate of applying the in-painting. The rate of out-painting is `1 - inpaint_rate`. (default: 0.2).
+    """
+
+    def __init__(self, prob=0.5, inpaint_rate=0.2):
+        self.prob = max(0, min(prob, 1))
+        self.inpaint_rate = max(0, min(inpaint_rate, 1))
+        self.outpaint_rate = 1.0 - self.inpaint_rate
+
+    def __call__(self, *imgs, **kwargs):
+        """
+        Args:
+            imgs (tuple of numpy.ndarray): The images to be transform.
+        Returns:
+            imgs (tuple of numpy.ndarray): The transformed images.
+        """
+        if len(imgs) != 1:
+            raise ValueError('The transform only supports single image in the current version.')
+
+        if not all(isinstance(img, np.ndarray) for img in imgs):
+            raise TypeError('All of the images should be numpy.ndarray.')
+
+        if not all(img.ndim == 3 for img in imgs) and not all(img.ndim == 4 for img in imgs):
+            raise ValueError("All of the images' dimensions should be 3 (2D images) or 4 (3D images).")
+
+        if random.random() < self.prob:
+            if random.random() < self.inpaint_rate:
+                imgs = tuple([self.in_painting(imgs[0])])
+            else:
+                imgs = tuple([self.out_painting(imgs[0])])
+        return imgs
+
+    @staticmethod
+    def in_painting(img):
+        num_painting = 5
+        img = copy.deepcopy(img)
+        if img.ndim == 3:
+            H, W, C = img.shape
+            while num_painting > 0:
+                block_noise_size_x = random.randint(H // 6, H // 3)
+                block_noise_size_y = random.randint(W // 6, W // 3)
+                noise_x = random.randint(3, H - block_noise_size_x - 3)
+                noise_y = random.randint(3, W - block_noise_size_y - 3)
+                img[noise_x:noise_x + block_noise_size_x,
+                    noise_y:noise_y + block_noise_size_y] = np.random.rand(block_noise_size_x,
+                                                                           block_noise_size_y,
+                                                                           C) * 1.0
+                num_painting -= 1
+        elif img.ndim == 4:
+            H, W, D, C = img.shape
+            while num_painting > 0:
+                block_noise_size_x = random.randint(H // 6, H // 3)
+                block_noise_size_y = random.randint(W // 6, W // 3)
+                block_noise_size_z = random.randint(D // 6, D // 3)
+                noise_x = random.randint(3, H - block_noise_size_x - 3)
+                noise_y = random.randint(3, W - block_noise_size_y - 3)
+                noise_z = random.randint(3, D - block_noise_size_z - 3)
+                img[noise_x:noise_x + block_noise_size_x,
+                    noise_y:noise_y + block_noise_size_y,
+                    noise_z:noise_z + block_noise_size_z] = np.random.rand(block_noise_size_x,
+                                                                           block_noise_size_y,
+                                                                           block_noise_size_z,
+                                                                           C) * 1.0
+                num_painting -= 1
+        return img
+
+    @staticmethod
+    def out_painting(img):
+        num_painting = 5
+        img = copy.deepcopy(img)
+        tmp_img = copy.deepcopy(img)
+        if img.ndim == 3:
+            H, W, C = img.shape
+            img = np.random.rand(H, W, C) * 1.0
+            while num_painting > 0:
+                block_noise_size_x = H - random.randint(3 * H // 7, 4 * H // 7)
+                block_noise_size_y = W - random.randint(3 * W // 7, 4 * W // 7)
+                noise_x = random.randint(3, H - block_noise_size_x - 3)
+                noise_y = random.randint(3, W - block_noise_size_y - 3)
+                img[noise_x:noise_x + block_noise_size_x,
+                    noise_y:noise_y + block_noise_size_y] = tmp_img[noise_x:noise_x + block_noise_size_x,
+                                                                    noise_y:noise_y + block_noise_size_y]
+                num_painting -= 1
+        elif img.ndim == 4:
+            H, W, D, C = img.shape
+            img = np.random.rand(H, W, D, C) * 1.0
+            while num_painting > 0:
+                block_noise_size_x = H - random.randint(3 * H // 7, 4 * H // 7)
+                block_noise_size_y = W - random.randint(3 * W // 7, 4 * W // 7)
+                block_noise_size_z = D - random.randint(3 * D // 7, 4 * D // 7)
+                noise_x = random.randint(3, H - block_noise_size_x - 3)
+                noise_y = random.randint(3, W - block_noise_size_y - 3)
+                noise_z = random.randint(3, D - block_noise_size_z - 3)
+                img[noise_x:noise_x + block_noise_size_x,
+                    noise_y:noise_y + block_noise_size_y,
+                    noise_z:noise_z + block_noise_size_z] = tmp_img[noise_x:noise_x + block_noise_size_x,
+                                                                    noise_y:noise_y + block_noise_size_y,
+                                                                    noise_z:noise_z + block_noise_size_z]
+                num_painting -= 1
+        return img

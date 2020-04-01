@@ -3,6 +3,7 @@ import logging
 import math
 import random
 import torch
+import numpy as np
 from torch.optim.lr_scheduler import (
     CyclicLR, OneCycleLR, CosineAnnealingWarmRestarts, ReduceLROnPlateau
 )
@@ -16,27 +17,27 @@ LOGGER = logging.getLogger(__name__.split('.')[-1])
 class BaseTrainer:
     """The base class for all trainers.
     Args:
+        saved_dir (Path): The root directory of the saved data.
         device (torch.device): The device.
         train_dataloader (Dataloader): The training dataloader.
         valid_dataloader (Dataloader): The validation dataloader.
         net (BaseNet): The network architecture.
         loss_fns (LossFns): The loss functions.
-        loss_weights (torch.Tensor): The corresponding weights of loss functions.
+        loss_weights (LossWeights): The corresponding weights of loss functions.
         metric_fns (MetricFns): The metric functions.
         optimizer (torch.optim.Optimizer): The algorithm to train the network.
         lr_scheduler (torch.optim.lr_scheduler): The scheduler to adjust the learning rate.
         logger (BaseLogger): The object for recording the log information.
         monitor (Monitor): The object to determine whether to save the checkpoint.
         num_epochs (int): The total number of training epochs.
-        valid_freq (int): The validation frequency (default: 1).
         use_amp (bool): Whether to use the Automatic Mixed Precision training (default: False).
         opt_level (str): The optimization level of apex.amp (default: 'O1').
     """
 
-    def __init__(self, device, train_dataloader, valid_dataloader,
-                 net, loss_fns, loss_weights, metric_fns, optimizer,
-                 lr_scheduler, logger, monitor, num_epochs,
-                 valid_freq=1, use_amp=False, opt_level='O1'):
+    def __init__(self, saved_dir, device, train_dataloader, valid_dataloader,
+                 net, loss_fns, loss_weights, metric_fns, optimizer, lr_scheduler,
+                 logger, monitor, num_epochs, use_amp=False, opt_level='O1'):
+        self.saved_dir = saved_dir
         self.device = device
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
@@ -51,7 +52,6 @@ class BaseTrainer:
         self.logger = logger
         self.monitor = monitor
         self.num_epochs = num_epochs
-        self.valid_freq = valid_freq
         self.use_amp = use_amp
         self.epoch = 1
 
@@ -65,10 +65,11 @@ class BaseTrainer:
         """
         while self.epoch <= self.num_epochs:
             # Do training and validation.
+            print(end='\n\n')
             LOGGER.info(f'Epoch {self.epoch}.')
             train_log, train_batch, train_outputs = self._run_epoch('train')
             LOGGER.info(f'Train log: {train_log}.')
-            if self.epoch % self.valid_freq == 0:
+            if self.epoch % self.monitor.valid_freq == 0:
                 valid_log, valid_batch, valid_outputs = self._run_epoch('valid')
                 LOGGER.info(f'Valid log: {valid_log}.')
             else:
@@ -83,22 +84,21 @@ class BaseTrainer:
             self.logger.write(self.epoch, train_log, train_batch, train_outputs,
                               valid_log, valid_batch, valid_outputs)
 
-            if self.epoch % self.valid_freq == 0:
+            if self.epoch % self.monitor.valid_freq == 0:
                 # Save the best checkpoint.
-                saved_path = self.monitor.is_best(valid_log)
-                if saved_path:
+                saved_path = self.monitor.is_best(self.epoch, valid_log)
+                if saved_path is not None:
                     LOGGER.info(f'Save the best checkpoint to {saved_path} '
-                                f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                                f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best_score}).')
                     self.save(saved_path)
                 else:
-                    epoch = self.epoch - self.monitor.not_improved_count * self.valid_freq
-                    LOGGER.info(f'The best checkpoint is remained at epoch {epoch} '
-                                f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best}).')
+                    LOGGER.info(f'The best checkpoint is remained at epoch {self.monitor.best_epoch} '
+                                f'({self.monitor.mode} {self.monitor.target}: {self.monitor.best_score}).')
 
                 # Save the regular checkpoint.
                 saved_path = self.monitor.is_saved(self.epoch)
-                if saved_path:
-                    LOGGER.info(f'Save the checkpoint to {saved_path}.')
+                if saved_path is not None:
+                    LOGGER.info(f'Save the regular checkpoint to {saved_path}.')
                     self.save(saved_path)
 
                 # Early stop.
@@ -108,8 +108,8 @@ class BaseTrainer:
             else:
                 # Save the regular checkpoint.
                 saved_path = self.monitor.is_saved(self.epoch)
-                if saved_path:
-                    LOGGER.info(f'Save the checkpoint to {saved_path}.')
+                if saved_path is not None:
+                    LOGGER.info(f'Save the regular checkpoint to {saved_path}.')
                     self.save(saved_path)
 
             self.epoch += 1
@@ -132,7 +132,7 @@ class BaseTrainer:
             dataloader_iterator = iter(dataloader)
             outter_pbar = tqdm(total=((len(dataloader) + dataloader.grad_accumulation_steps() - 1)
                                       // dataloader.grad_accumulation_steps()),
-                               desc=mode,
+                               desc='train',
                                ascii=True)
             inner_pbar = tqdm(total=math.ceil(dataloader.grad_accumulation_steps(0)),
                               desc='grad_accumulation',
@@ -143,9 +143,11 @@ class BaseTrainer:
             for i in range(len(dataloader)):
                 batch = next(dataloader_iterator)
                 train_dict = self._train_step(batch)
-                losses = train_dict['losses']
-                _, _losses = zip(*sorted(losses.items()))
-                loss = (torch.stack(_losses) * self.loss_weights).sum()
+                loss = train_dict.get('loss')
+                if loss is None:
+                    raise KeyError(f"The train_dict must have the key named 'loss'. "
+                                   'Please check the returned keys as defined in MyTrainer._train_step().')
+                losses = train_dict.get('losses')
                 metrics = train_dict.get('metrics')
                 outputs = train_dict.get('outputs')
 
@@ -183,15 +185,17 @@ class BaseTrainer:
         else:
             self.net.eval()
             dataloader = self.valid_dataloader
-            pbar = tqdm(dataloader, desc=mode, ascii=True)
+            pbar = tqdm(dataloader, desc='valid', ascii=True)
 
             epoch_log = EpochLog()
             for i, batch in enumerate(pbar):
                 with torch.no_grad():
                     valid_dict = self._valid_step(batch)
-                    losses = valid_dict['losses']
-                    _, _losses = zip(*sorted(losses.items()))
-                    loss = (torch.stack(_losses) * self.loss_weights).sum()
+                    loss = valid_dict.get('loss')
+                    if loss is None:
+                        raise KeyError(f"The valid_dict must have the key named 'loss'. "
+                                       'Please check the returned keys as defined in MyTrainer._valid_step().')
+                    losses = valid_dict.get('losses')
                     metrics = valid_dict.get('metrics')
                     outputs = valid_dict.get('outputs')
 
@@ -211,7 +215,8 @@ class BaseTrainer:
 
         Returns:
             train_dict (dict): The computed results.
-                train_dict['losses'] (dict)
+                train_dict['loss'] (torch.Tensor)
+                train_dict['losses'] (dict, optional)
                 train_dict['metrics'] (dict, optional)
                 train_dict['outputs'] (dict, optional)
         """
@@ -224,7 +229,8 @@ class BaseTrainer:
 
         Returns:
             valid_dict (dict): The computed results.
-                valid_dict['losses'] (dict)
+                valid_dict['loss'] (torch.Tensor)
+                valid_dict['losses'] (dict, optional)
                 valid_dict['metrics'] (dict, optional)
                 valid_dict['outputs'] (dict, optional)
         """
@@ -243,6 +249,7 @@ class BaseTrainer:
             'monitor': self.monitor.state_dict(),
             'epoch': self.epoch,
             'random_state': random.getstate(),
+            'np_random_state': np.random.get_state(),
             'torch_random_state': torch.get_rng_state(),
             'torch_cuda_random_state': torch.cuda.get_rng_state_all()
         }, path)
@@ -273,5 +280,6 @@ class BaseTrainer:
         self.monitor.load_state_dict(checkpoint['monitor'])
         self.epoch = checkpoint['epoch'] + 1
         random.setstate(checkpoint['random_state'])
+        np.random.set_state(checkpoint['np_random_state'])
         torch.set_rng_state(checkpoint['torch_random_state'])
         torch.cuda.set_rng_state_all(checkpoint['torch_cuda_random_state'])

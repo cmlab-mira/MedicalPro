@@ -11,34 +11,36 @@ class EpochLog:
         self.count = 0
         self.log = None
 
-    def _init_log(self, losses, metrics=None):
-        """Initilize the log.
+    def _init_log(self, losses=None, metrics=None):
+        """Initialize the log.
         Args:
-            losses (dict): The computed losses.
-            metrics (dict): The computed metrics.
+            losses (dict, optional): The computed losses (default: None).
+            metrics (dict, optional): The computed metrics (default: None).
         """
         self.log = {}
         self.log['loss'] = 0
-        for loss_name in losses.keys():
-            self.log[loss_name] = 0
+        if losses is not None:
+            for loss_name in losses.keys():
+                self.log[loss_name] = 0
         if metrics is not None:
             for metric_name in metrics.keys():
                 self.log[metric_name] = 0
 
-    def update(self, batch_size, loss, losses, metrics=None):
+    def update(self, batch_size, loss, losses=None, metrics=None):
         """Accumulate the computed losses and metrics.
         Args:
-            loss (torch.Tensor): The weighted sum of the computed losses.
-            losses (dict): The computed losses.
-            metrics (dict): The computed metrics.
             batch_size (int): The batch size.
+            loss (torch.Tensor): The computed loss.
+            losses (dict, optional): The computed losses (default: None).
+            metrics (dict, optional): The computed metrics (default: None).
         """
         self.count += batch_size
         if self.log is None:
             self._init_log(losses, metrics)
         self.log['loss'] += loss.item() * batch_size
-        for loss_name, loss in losses.items():
-            self.log[loss_name] += loss.item() * batch_size
+        if losses is not None:
+            for loss_name, loss in losses.items():
+                self.log[loss_name] += loss.item() * batch_size
         if metrics is not None:
             for metric_name, metric in metrics.items():
                 self.log[metric_name] += metric.item() * batch_size

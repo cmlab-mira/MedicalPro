@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 from torch.utils.data import DataLoader
 
@@ -12,6 +13,8 @@ class Dataloader(DataLoader):
     def __init__(self, dataset, batch_size=1, shuffle=False, sampler=None,
                  batch_sampler=None, num_workers=0, collate_fn=None, pin_memory=False,
                  drop_last=False, timeout=0, worker_init_fn=None, grad_accumulation_steps=1):
+        if worker_init_fn is None:
+            worker_init_fn = self._default_worker_init_fn
         super().__init__(dataset=dataset,
                          batch_size=batch_size,
                          shuffle=shuffle,
@@ -38,13 +41,25 @@ class Dataloader(DataLoader):
                                                                  total_steps=len(self._index_sampler),
                                                                  batch_size=batch_size,
                                                                  last_batch_size=last_batch_size)
+        else:
+            self.grad_accumulation_steps = None
 
     def __len__(self):
-        if (getattr(self, 'grad_accumulation_steps', None) is not None
-                and self.drop_last and self.grad_accumulation_steps() != 1):
+        if self.grad_accumulation_steps is not None and self.drop_last and self.grad_accumulation_steps() != 1:
             return len(self._index_sampler) // self.grad_accumulation_steps() * self.grad_accumulation_steps()
         else:
             return len(self._index_sampler)
+
+    @staticmethod
+    def _default_worker_init_fn(worker_id):
+        """The default worker_init_fn to avoid replication of numpy random seed across child processes
+        Ref:
+            https://github.com/pytorch/pytorch/issues/5059
+        """
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is not None:
+            seed = worker_info.seed % (2 ** 32)  # Avoid ValueError: Seed must be between 0 and 2**32 - 1.
+            np.random.seed(seed)
 
 
 class GradAccumulationSteps:

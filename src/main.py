@@ -2,11 +2,11 @@ import argparse
 import copy
 import logging
 import random
-import re
 import torch
-import yaml
 from box import Box
+from collections import namedtuple
 from pathlib import Path
+from shutil import copyfile
 
 import src
 
@@ -18,9 +18,8 @@ def main(args):
     if not saved_dir.is_dir():
         saved_dir.mkdir(parents=True)
 
-    logging.info(f'Save the config to "{config.main.saved_dir}".')
-    with open(saved_dir / 'config.yaml', 'w+') as f:
-        yaml.dump(config.to_dict(), f, default_flow_style=False)
+    logging.info(f'Save the config to "{saved_dir}".')
+    copyfile(args.config_path, saved_dir / 'config.yaml')
 
     if not args.test:
         if config.trainer.kwargs.get('use_amp', False):
@@ -80,26 +79,38 @@ def main(args):
         net = _get_instance(src.model.nets, config.net).to(device)
 
         logging.info('Create the loss functions and corresponding weights.')
-        loss_fns, loss_weights = LossFns(), []
-        defaulted_loss_fns = [loss_fn for loss_fn in dir(torch.nn) if 'Loss' in loss_fn]
-        for config_loss in sorted(config.losses,
-                                  key=lambda config_loss: _snake_case(config_loss.get('alias', config_loss.name))):
+        loss_names, loss_fns, loss_weights = [], [], []
+        defaulted_loss_fns = tuple(loss_fn for loss_fn in dir(torch.nn) if 'Loss' in loss_fn)
+        for config_loss in config.losses:
+            loss_name = config_loss.get('alias', config_loss.name)
             if config_loss.name in defaulted_loss_fns:
                 loss_fn = _get_instance(torch.nn, config_loss).to(device)
             else:
                 loss_fn = _get_instance(src.model.losses, config_loss).to(device)
             loss_weight = config_loss.get('weight', 1 / len(config.losses))
-            name = _snake_case(config_loss.get('alias', config_loss.name))
-            setattr(loss_fns, name, loss_fn)
+            loss_names.append(loss_name)
+            loss_fns.append(loss_fn)
             loss_weights.append(loss_weight)
-        loss_weights = torch.tensor(loss_weights, dtype=torch.float, device=device)
+        LossFns, LossWeights = namedtuple('LossFns', loss_names), namedtuple('LossWeights', loss_names)
+        loss_fns, loss_weights = LossFns(*loss_fns), LossWeights(*loss_weights)
 
-        logging.info('Create the metric functions.')
-        metric_fns = MetricFns()
-        for config_metric in config.metrics:
-            metric_fn = _get_instance(src.model.metrics, config_metric).to(device)
-            name = _snake_case(config_metric.get('alias', config_metric.name))
-            setattr(metric_fns, name, metric_fn)
+        if 'metrics' in config:
+            logging.info('Create the metric functions.')
+            metric_names, metric_fns = [], []
+            defaulted_metric_fns = tuple(metric_fn for metric_fn in dir(torch.nn) if 'Loss' in metric_fn)
+            for config_metric in config.metrics:
+                metric_name = config_metric.get('alias', config_metric.name)
+                if config_metric.name in defaulted_metric_fns:
+                    metric_fn = _get_instance(torch.nn, config_metric).to(device)
+                else:
+                    metric_fn = _get_instance(src.model.metrics, config_metric).to(device)
+                metric_names.append(metric_name)
+                metric_fns.append(metric_fn)
+            MetricFns = namedtuple('MetricFns', metric_names)
+            metric_fns = MetricFns(*metric_fns)
+        else:
+            logging.info('Not using the metric functions.')
+            metric_fns = None
 
         logging.info('Create the optimizer.')
         optimizer = _get_instance(torch.optim, config.optimizer, net.parameters())
@@ -122,6 +133,7 @@ def main(args):
 
         logging.info('Create the trainer.')
         kwargs = {
+            'saved_dir': saved_dir,
             'device': device,
             'train_dataloader': train_dataloader,
             'valid_dataloader': valid_dataloader,
@@ -172,29 +184,42 @@ def main(args):
         net = _get_instance(src.model.nets, config.net).to(device)
 
         logging.info('Create the loss functions and corresponding weights.')
-        loss_fns, loss_weights = LossFns(), []
-        defaulted_loss_fns = [loss_fn for loss_fn in dir(torch.nn) if 'Loss' in loss_fn]
-        for config_loss in sorted(config.losses,
-                                  key=lambda config_loss: _snake_case(config_loss.get('alias', config_loss.name))):
+        loss_names, loss_fns, loss_weights = [], [], []
+        defaulted_loss_fns = tuple(loss_fn for loss_fn in dir(torch.nn) if 'Loss' in loss_fn)
+        for config_loss in config.losses:
+            loss_name = config_loss.get('alias', config_loss.name)
             if config_loss.name in defaulted_loss_fns:
                 loss_fn = _get_instance(torch.nn, config_loss).to(device)
             else:
                 loss_fn = _get_instance(src.model.losses, config_loss).to(device)
             loss_weight = config_loss.get('weight', 1 / len(config.losses))
-            loss_name = _snake_case(config_loss.get('alias', config_loss.name))
-            setattr(loss_fns, loss_name, loss_fn)
+            loss_names.append(loss_name)
+            loss_fns.append(loss_fn)
             loss_weights.append(loss_weight)
-        loss_weights = torch.tensor(loss_weights, dtype=torch.float, device=device)
+        LossFns, LossWeights = namedtuple('LossFns', loss_names), namedtuple('LossWeights', loss_names)
+        loss_fns, loss_weights = LossFns(*loss_fns), LossWeights(*loss_weights)
 
-        logging.info('Create the metric functions.')
-        metric_fns = MetricFns()
-        for config_metric in config.metrics:
-            metric_fn = _get_instance(src.model.metrics, config_metric).to(device)
-            metric_name = _snake_case(config_metric.get('alias', config_metric.name))
-            setattr(metric_fns, metric_name, metric_fn)
+        if 'metrics' in config:
+            logging.info('Create the metric functions.')
+            metric_names, metric_fns = [], []
+            defaulted_metric_fns = tuple(metric_fn for metric_fn in dir(torch.nn) if 'Loss' in metric_fn)
+            for config_metric in config.metrics:
+                metric_name = config_metric.get('alias', config_metric.name)
+                if config_metric.name in defaulted_metric_fns:
+                    metric_fn = _get_instance(torch.nn, config_metric).to(device)
+                else:
+                    metric_fn = _get_instance(src.model.metrics, config_metric).to(device)
+                metric_names.append(metric_name)
+                metric_fns.append(metric_fn)
+            MetricFns = namedtuple('MetricFns', metric_names)
+            metric_fns = MetricFns(*metric_fns)
+        else:
+            logging.info('Not using the metric functions.')
+            metric_fns = None
 
         logging.info('Create the predictor.')
         kwargs = {
+            'saved_dir': saved_dir,
             'device': device,
             'test_dataloader': test_dataloader,
             'net': net,
@@ -213,25 +238,6 @@ def main(args):
         logging.info('End testing.')
 
 
-class BaseFns:
-    def __init__(self):
-        pass
-
-    def __getattr__(self, name):
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'. "
-                             f"Its attributes: {list(self.__dict__.keys())}")
-
-
-class LossFns(BaseFns):
-    def __init__(self):
-        super().__init__()
-
-
-class MetricFns(BaseFns):
-    def __init__(self):
-        super().__init__()
-
-
 def _parse_args():
     parser = argparse.ArgumentParser(description="The main pipeline script.")
     parser.add_argument('config_path', type=Path, help='The path of the config file.')
@@ -244,21 +250,14 @@ def _parse_args():
 def _get_instance(module, config, *args):
     """
     Args:
-        module (module): The python module.
-        config (Box): The config to create the class object.
+        module (MyClass): The defined module (class).
+        config (Box): The config to create the class instance.
 
     Returns:
-        instance (object): The class object defined in the module.
+        instance (MyClass): The defined class instance.
     """
     cls = getattr(module, config.name)
     return cls(*args, **config.get('kwargs', {}))
-
-
-def _snake_case(string):
-    """Convert a string into snake case form.
-    Ref: https://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case
-    """
-    return re.sub('((?<=[a-z0-9])[A-Z]|(?!^)(?<!_)[A-Z](?=[a-z]))', r'_\1', string).lower()
 
 
 if __name__ == "__main__":

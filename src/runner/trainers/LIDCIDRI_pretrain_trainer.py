@@ -4,7 +4,7 @@ from src.runner.trainers import BaseTrainer
 
 
 class LIDCIDRIPretrainTrainer(BaseTrainer):
-    """The ACDC trainer for the segmentation task.
+    """The trainer for the model pretraining on LIDC-IDRI dataset.
     """
 
     def __init__(self, **kwargs):

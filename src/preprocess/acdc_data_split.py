@@ -21,7 +21,7 @@ def main(args):
             for line in f:
                 key, value = line.rstrip('\n').split(': ')
                 if key == 'Group':
-                    group_dict[value].append(data_path.parent)
+                    group_dict[value].append(data_path.parent.resolve())
                     break
     _, groups = zip(*sorted(group_dict.items()))
     random.seed(0)
@@ -40,7 +40,7 @@ def main(args):
         train_folds = tuple(set(folds) - (set(test_folds) | set(valid_folds)))
 
         csv_path = output_dir / f'{i}.csv'
-        logging.info(f'Write the data split file to "{csv_path}".')
+        logging.info(f'Write the data split file to "{csv_path.resolve()}".')
         with open(csv_path, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(['path', 'type'])
@@ -54,7 +54,7 @@ def main(args):
     # Write testing data split file.
     patient_dirs = sorted(dir_ for dir_ in (args.data_dir / 'testing').iterdir() if dir_.is_dir())
     csv_path = output_dir / 'testing.csv'
-    logging.info(f'Write the data split file to "{csv_path}".')
+    logging.info(f'Write the data split file to "{csv_path.resolve()}".')
     with open(csv_path, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['path', 'type'])

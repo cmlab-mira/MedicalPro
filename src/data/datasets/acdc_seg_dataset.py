@@ -17,9 +17,11 @@ default_collate_err_msg_format = (
 
 
 class AcdcSegDataset(BaseDataset):
-    """The dataset of the Automated Cardiac Diagnosis Challenge (ACDC) in MICCAI 2017 for the segmentation task.
+    """The dataset of the Automated Cardiac Diagnosis Challenge (ACDC) in MICCAI 2017
+    for the segmentation task.
 
-    Ref: https://www.creatis.insa-lyon.fr/Challenge/acdc/index.html
+    Ref: 
+        https://www.creatis.insa-lyon.fr/Challenge/acdc/index.html
 
     Args:
         data_split_file_path (str): The data split file path.

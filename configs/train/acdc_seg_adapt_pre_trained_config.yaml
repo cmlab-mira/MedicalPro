@@ -38,7 +38,7 @@ net:
     kwargs:
         in_channels: 1
         out_channels: 4
-        weight_path: './models/acdc_seg/adapt_pre_trained/train/checkpoints/model_best.pth'
+        weight_path: './models/acdc_seg/adapt_pre_trained/train/checkpoints/model_10000.pth'
 
 losses:
     - name: 'CrossEntropyLossWrapper'

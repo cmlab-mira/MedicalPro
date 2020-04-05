@@ -26,7 +26,10 @@ def main(args):
     _, groups = zip(*sorted(group_dict.items()))
     random.seed(0)
     groups = tuple(random.sample(group, k=len(group)) for group in groups)
-    folds = tuple(zip(*groups))  # twenty folds where a fold contains five types of patients.
+
+    # Got twenty folds because there are twenty patients in each group,
+    # and a fold contains five types of patients.
+    folds = tuple(zip(*groups))
 
     output_dir = args.output_dir
     if not output_dir.is_dir():

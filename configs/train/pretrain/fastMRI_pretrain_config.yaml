@@ -1,0 +1,77 @@
+main:
+    random_seed: 0
+    saved_dir: './models/pretrain_mr'
+
+dataset:
+    name: 'PretrainDataset'
+    kwargs:
+        data_split_file_path: '/work/vic85821/FastMRI/FastMRI.csv'
+        preprocess:
+            - name: 'Clip'
+              kwargs:
+                  mins: -1000
+                  maxs: 1000
+            - name: 'MinMaxScale'
+            - name: 'RandomCrop'
+              kwargs:
+                  size: [64, 64, 32]
+        transforms:
+            - name: 'NonLinearTransform'
+              kwargs:
+                  prob: 0.9
+            - name: 'LocalPixelShuffling'
+              kwargs:
+                  prob: 0.5
+            - name: 'Painting'
+              kwargs:
+                  prob: 0.9
+                  inpaint_rate: 0.2
+
+dataloader:
+    name: 'Dataloader'
+    kwargs:
+        train:
+            batch_size: 6
+            drop_last: true
+        valid:
+            batch_size: 1
+            drop_last: false
+        shuffle: true
+        num_workers: 8
+
+net:
+    name: 'ModelsGenesisSegNet'
+    kwargs:
+        in_channels: 1
+        out_channels: 1
+
+losses:
+    - name: 'MSELoss'
+      alias: 'mse_loss'
+
+metrics:
+    - name: 'MSELoss'
+      alias: 'mse_loss'
+
+optimizer:
+    name: 'SGD'
+    kwargs:
+        lr: 1.0
+        momentum: 0.9
+
+logger:
+    name: 'PretrainLogger'
+
+monitor:
+    name: 'Monitor'
+    kwargs:
+        mode: 'min'
+        target: 'loss'
+        saved_freq: 50
+        early_stop: 0
+
+trainer:
+    name: 'PretrainTrainer'
+    kwargs:
+        device: 'cuda:0'
+        num_epochs: 1000

@@ -1,11 +1,11 @@
 main:
     random_seed: 0
-    saved_dir: './models/pretrain_mr'
+    saved_dir: './models/pretrain/ct'
 
 dataset:
     name: 'PretrainDataset'
     kwargs:
-        data_split_file_path: '/work/vic85821/FastMRI/FastMRI.csv'
+        data_split_file_path: '../LIDC-IDRI-nifti-resampled/LIDC-IDRI.csv'
         preprocess:
             - name: 'Clip'
               kwargs:

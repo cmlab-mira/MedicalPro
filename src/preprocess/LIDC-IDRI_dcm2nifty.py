@@ -13,9 +13,9 @@ def main(args):
     if output_dir.exists() is False:
         output_dir.mkdir(parents=True)
     
-    patient_paths = sorted(list((data_dir).iterdir()))
+    patient_paths = sorted(dir_ for dir_ in data_dir.iterdir() if dir_.is_dir())
     for path in patient_paths:
-        folders = list(path.iterdir())
+        folders = [folder for folder in path.iterdir() if folder.is_dir()]
         for folder in folders:
             dcm_files = list(folder.glob('*/*.dcm'))
 

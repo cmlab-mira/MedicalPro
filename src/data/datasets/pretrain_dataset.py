@@ -64,7 +64,7 @@ class PretrainMultitaskDataset(BaseDataset):
         if 'LIDC-IDRI' in data_path.as_posix():
             domain = np.array([0])
         elif 'FastMRI' in data_path.as_posix():
-            domain = np.array([0])
+            domain = np.array([1])
         else:
             raise ValueError("Unknown data modality.")
         

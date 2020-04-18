@@ -16,9 +16,9 @@ def main(args):
         output_dir.mkdir(parents=True)    
     split_csv_path = output_dir / 'LIDC-IDRI.csv'
 
-    data_paths = sorted(list(data_dir.glob('*.nii.gz')))
+    data_paths = sorted(data_dir.glob('*.nii.gz'))
     train_paths = sorted(random.sample(data_paths, int(len(data_paths) * 0.9)))
-    valid_paths = sorted(list(set(data_paths) - set(train_paths)))
+    valid_paths = sorted(set(data_paths) - set(train_paths))
 
     train_df = pd.DataFrame({'path': train_paths, 'type': ['train'] * len(train_paths)})
     valid_df = pd.DataFrame({'path': valid_paths, 'type': ['valid'] * len(valid_paths)})

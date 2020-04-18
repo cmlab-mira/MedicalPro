@@ -17,18 +17,18 @@ def main(args):
     split_csv_path = output_dir / 'FastMRI.csv'
 
     train_paths, valid_paths = [], []
-    subdirs = list(data_dir.iterdir())
+    subdirs = data_dir.iterdir()
     for subdir in subdirs:
-        data_paths = sorted(list(subdir.glob('*.nii.gz')))
+        data_paths = sorted(subdir.glob('*.nii.gz'))
         removed_paths = []
         for path in data_paths:
             h, w, d = nib.load(path.as_posix()).shape
             if (h < 64) or (w < 64) or (d < 32):
                 removed_paths.append(path)
 
-        data_paths = sorted(list(set(data_paths) - set(removed_paths)))
+        data_paths = sorted(set(data_paths) - set(removed_paths))
         train_paths += sorted(random.sample(data_paths, int(len(data_paths) * 0.9)))
-        valid_paths += sorted(list(set(data_paths) - set(train_paths)))
+        valid_paths += sorted(set(data_paths) - set(train_paths))
 
     train_df = pd.DataFrame({'path': train_paths, 'type': ['train'] * len(train_paths)})
     valid_df = pd.DataFrame({'path': valid_paths, 'type': ['valid'] * len(valid_paths)})

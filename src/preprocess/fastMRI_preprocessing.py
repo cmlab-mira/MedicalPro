@@ -16,7 +16,7 @@ def main(args):
     if output_dir.exists() is False:
         output_dir.mkdir(parents=True)
         
-    data_paths = sorted(list(input_dir.iterdir()))
+    data_paths = sorted(input_dir.iterdir())
     min_size = np.array([1e10, 1e10, 1e10])
     for path in tqdm(data_paths):
         filename = path.parts[-1].split('.')[0]
@@ -24,7 +24,7 @@ def main(args):
         sid = filename.split('_')[-1]
 
         output_subdir = output_dir / mri_type
-        if output_subdir.exists() == False:
+        if output_subdir.exists() is False:
             output_subdir.mkdir(parents=True)
 
         hf = h5py.File(path.as_posix())
@@ -38,7 +38,7 @@ def main(args):
         resolution_y = float(header['ismrmrdHeader']['encoding']['reconSpace']['fieldOfView_mm']['y']) / float(header['ismrmrdHeader']['encoding']['reconSpace']['matrixSize']['y'])
         resolution_z = float(header['ismrmrdHeader']['encoding']['reconSpace']['fieldOfView_mm']['z']) / float(header['ismrmrdHeader']['encoding']['reconSpace']['matrixSize']['z'])
         itk_img.SetSpacing([resolution_x, resolution_y, resolution_z])
-        resampled_img = resample_to_istropic(itk_img)
+        resampled_img = resample_to_isotropic(itk_img)
         
         size = np.array(resampled_img.GetSize())
         min_size = np.min(np.vstack([min_size, size]), axis=0)
@@ -47,7 +47,7 @@ def main(args):
         
     print(min_size)
         
-def resample_to_istropic(itk_img):
+def resample_to_isotropic(itk_img):
     w_res, h_res, d_res = itk_img.GetSpacing()[:]
     w, h, d = itk_img.GetSize()[:]
     

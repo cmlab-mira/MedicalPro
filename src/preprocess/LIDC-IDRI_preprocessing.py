@@ -16,17 +16,17 @@ def main(args):
     if output_dir.exists() is False:
         output_dir.mkdir(parents=True)
         
-    data_paths = sorted(list(input_dir.iterdir()))
+    data_paths = sorted(input_dir.iterdir())
     for path in tqdm(data_paths):
         itk_img = sitk.ReadImage(path.as_posix())
-        resampled_img = resample_to_istropic(itk_img)
+        resampled_img = resample_to_isotropic(itk_img)
         
         filename = path.parts[-1]
         output_path = output_dir / filename
         sitk.WriteImage(resampled_img, output_path.as_posix())
 
 
-def resample_to_istropic(itk_img):
+def resample_to_isotropic(itk_img):
     w_res, h_res, d_res = itk_img.GetSpacing()[:]
     w, h, d = itk_img.GetSize()[:]
     

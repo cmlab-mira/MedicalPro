@@ -19,7 +19,7 @@ class PretrainMultitaskNet(BaseNet):
         weight_path (str): The pre-trained weight path.
     """
 
-    def __init__(self, in_channels, out_channels, num_domains, weight_path=None):
+    def __init__(self, in_channels, out_channels, num_domains):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -41,19 +41,6 @@ class PretrainMultitaskNet(BaseNet):
         self.out_linear.add_module('norm', nn.BatchNorm1d(512, momentum=0.01, eps=1e-03))
         self.out_linear.add_module('relu', nn.ReLU(inplace=True))
         self.out_linear.add_module('linear2', nn.Linear(512, num_domains, bias=True))
-
-        if weight_path is not None:
-            if Path(weight_path).name == 'models_genesis.pth':
-                pretrained_state_dict = torch.load(weight_path, map_location='cpu')
-            else:  # For the adapter fine-tine experiments.
-                pretrained_state_dict = torch.load(weight_path, map_location='cpu')['net']
-                pretrained_state_dict.pop('out_block.weight')
-                pretrained_state_dict.pop('out_block.bias')
-            pretrained_state_dict = {key: value for key, value in pretrained_state_dict.items()
-                                     if key in state_dict.keys()}
-            state_dict = self.state_dict()
-            state_dict.update(pretrained_state_dict)
-            self.load_state_dict(state_dict)
 
     def forward(self, input):
         # Encoder
@@ -86,7 +73,7 @@ class PretrainDANet(BaseNet):
         weight_path (str): The pre-trained weight path.
     """
 
-    def __init__(self, in_channels, out_channels, num_domains, weight_path=None):
+    def __init__(self, in_channels, out_channels, num_domains):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -108,19 +95,6 @@ class PretrainDANet(BaseNet):
         self.out_linear.add_module('norm', nn.BatchNorm1d(512, momentum=0.01, eps=1e-03))
         self.out_linear.add_module('relu', nn.ReLU(inplace=True))
         self.out_linear.add_module('linear2', nn.Linear(512, num_domains, bias=True))
-
-        if weight_path is not None:
-            if Path(weight_path).name == 'models_genesis.pth':
-                pretrained_state_dict = torch.load(weight_path, map_location='cpu')
-            else:  # For the adapter fine-tine experiments.
-                pretrained_state_dict = torch.load(weight_path, map_location='cpu')['net']
-                pretrained_state_dict.pop('out_block.weight')
-                pretrained_state_dict.pop('out_block.bias')
-            pretrained_state_dict = {key: value for key, value in pretrained_state_dict.items()
-                                     if key in state_dict.keys()}
-            state_dict = self.state_dict()
-            state_dict.update(pretrained_state_dict)
-            self.load_state_dict(state_dict)
 
     def forward(self, input):
         # Encoder

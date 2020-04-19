@@ -7,11 +7,6 @@ dataset:
     kwargs:
         data_split_file_path: '../FastMRI/FastMRI.csv'
         preprocess:
-            - name: 'Clip'
-              kwargs:
-                  mins: -1000
-                  maxs: 1000
-            - name: 'MinMaxScale'
             - name: 'RandomCrop'
               kwargs:
                   size: [64, 64, 32]
@@ -74,4 +69,4 @@ trainer:
     name: 'PretrainTrainer'
     kwargs:
         device: 'cuda:0'
-        num_epochs: 1000
+        num_epochs: 1500

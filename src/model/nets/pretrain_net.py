@@ -2,13 +2,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Function
-from pathlib import Path
 
 from src.model.nets import BaseNet
 
 
 class PretrainMultitaskNet(BaseNet):
-    """The Models Genesis network architecture for model pretraining in the multitask manner (image-to-image and domain classification).
+    """The Models Genesis network architecture for model pretraining in the multitask manner
+    (image-to-image and domain classification).
     Ref:
         https://github.com/MrGiovanni/ModelsGenesis
 
@@ -16,7 +16,6 @@ class PretrainMultitaskNet(BaseNet):
         in_channels (int): The input channels.
         out_channels (int): The output channels.
         num_domains (int): The number of the input domains.
-        weight_path (str): The pre-trained weight path.
     """
 
     def __init__(self, in_channels, out_channels, num_domains):
@@ -30,14 +29,15 @@ class PretrainMultitaskNet(BaseNet):
         self.down_block1 = _DownBlock(num_features[1], num_features[2])
         self.down_block2 = _DownBlock(num_features[2], num_features[3])
         self.down_block3 = _DownBlock(num_features[3], num_features[4])
-        
+
         self.up_block1 = _UpBlock(num_features[4] + num_features[3], num_features[3])
         self.up_block2 = _UpBlock(num_features[3] + num_features[2], num_features[2])
         self.up_block3 = _UpBlock(num_features[2] + num_features[1], num_features[1])
         self.out_block = _OutBlock(num_features[1], out_channels)
-        
+
         self.out_linear = nn.Sequential()
-        self.out_linear.add_module('linear1', nn.Linear(8*8*4*512, 512, bias=True)) # need to fix crop size as 64*64*32
+        self.out_linear.add_module('linear1',
+                                   nn.Linear(8 * 8 * 4 * 512, 512, bias=True))  # need to fix crop size as 64*64*32
         self.out_linear.add_module('norm', nn.BatchNorm1d(512, momentum=0.01, eps=1e-03))
         self.out_linear.add_module('relu', nn.ReLU(inplace=True))
         self.out_linear.add_module('linear2', nn.Linear(512, num_domains, bias=True))
@@ -51,13 +51,13 @@ class PretrainMultitaskNet(BaseNet):
 
         # domain classifier
         domain_logits = self.out_linear(torch.flatten(features, start_dim=1)).unsqueeze(dim=-1)
-        
+
         # Decoder
         features = self.up_block1(features, features3)
         features = self.up_block2(features, features2)
         features = self.up_block3(features, features1)
         image_logits = self.out_block(features)
-        
+
         return image_logits, domain_logits
 
 
@@ -70,7 +70,6 @@ class PretrainDANet(BaseNet):
         in_channels (int): The input channels.
         out_channels (int): The output channels.
         num_domains (int): The number of the input domains.
-        weight_path (str): The pre-trained weight path.
     """
 
     def __init__(self, in_channels, out_channels, num_domains):
@@ -84,14 +83,15 @@ class PretrainDANet(BaseNet):
         self.down_block1 = _DownBlock(num_features[1], num_features[2])
         self.down_block2 = _DownBlock(num_features[2], num_features[3])
         self.down_block3 = _DownBlock(num_features[3], num_features[4])
-        
+
         self.up_block1 = _UpBlock(num_features[4] + num_features[3], num_features[3])
         self.up_block2 = _UpBlock(num_features[3] + num_features[2], num_features[2])
         self.up_block3 = _UpBlock(num_features[2] + num_features[1], num_features[1])
         self.out_block = _OutBlock(num_features[1], out_channels)
-        
+
         self.out_linear = nn.Sequential()
-        self.out_linear.add_module('linear1', nn.Linear(8*8*4*512, 512, bias=True)) # need to fix crop size as 64*64*32
+        self.out_linear.add_module('linear1',
+                                   nn.Linear(8 * 8 * 4 * 512, 512, bias=True))  # need to fix crop size as 64*64*32
         self.out_linear.add_module('norm', nn.BatchNorm1d(512, momentum=0.01, eps=1e-03))
         self.out_linear.add_module('relu', nn.ReLU(inplace=True))
         self.out_linear.add_module('linear2', nn.Linear(512, num_domains, bias=True))
@@ -106,15 +106,15 @@ class PretrainDANet(BaseNet):
         # domain classifier
         reverse_features = _ReverseLayer.apply(features, 1.)
         domain_logits = self.out_linear(torch.flatten(reverse_features, start_dim=1)).unsqueeze(dim=-1)
-        
+
         # Decoder
         features = self.up_block1(features, features3)
         features = self.up_block2(features, features2)
         features = self.up_block3(features, features1)
         image_logits = self.out_block(features)
-        
+
         return image_logits, domain_logits
-    
+
 
 class _InBlock(nn.Sequential):
     def __init__(self, in_channels, mid_channels, out_channels):

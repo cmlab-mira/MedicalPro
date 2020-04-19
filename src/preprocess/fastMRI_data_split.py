@@ -1,19 +1,18 @@
 import argparse
-import csv
 import logging
 import random
-import pandas as pd
 import nibabel as nib
+import pandas as pd
 from pathlib import Path
 
 
 def main(args):
     random.seed('FastMRI')
     data_dir = args.data_dir
-    
+
     output_dir = args.output_dir
     if not output_dir.is_dir():
-        output_dir.mkdir(parents=True)    
+        output_dir.mkdir(parents=True)
     split_csv_path = output_dir / 'FastMRI.csv'
 
     train_paths, valid_paths = [], []

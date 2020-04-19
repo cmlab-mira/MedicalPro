@@ -29,7 +29,7 @@ class PretrainDataset(BaseDataset):
         nii_img = nib.load(data_path.as_posix())
         data = nii_img.get_fdata().astype(np.float32)[..., np.newaxis]
         data, = self.preprocess(data)
-        
+
         transformed_data, = self.transforms(data)
         transformed_data, data = self.to_tensor(transformed_data, data, dtypes=[torch.float, torch.float])
         metadata = {'input': transformed_data, 'target': data}
@@ -37,7 +37,7 @@ class PretrainDataset(BaseDataset):
 
     def __len__(self):
         return len(self.data_paths)
-    
+
 
 class PretrainMultitaskDataset(BaseDataset):
     """The dataset for self-supervised learning with domain classification task.
@@ -60,14 +60,14 @@ class PretrainMultitaskDataset(BaseDataset):
         nii_img = nib.load(data_path.as_posix())
         data = nii_img.get_fdata().astype(np.float32)[..., np.newaxis]
         data, = self.preprocess(data)
-        
+
         if 'LIDC-IDRI' in data_path.as_posix():
             domain = np.array([0])
         elif 'FastMRI' in data_path.as_posix():
             domain = np.array([1])
         else:
             raise ValueError("Unknown data modality.")
-        
+
         transformed_data, = self.transforms(data)
         transformed_data, data = self.to_tensor(transformed_data, data, dtypes=[torch.float, torch.float])
         domain = torch.LongTensor(domain)

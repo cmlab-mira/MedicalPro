@@ -1,5 +1,4 @@
 import argparse
-import csv
 import logging
 import pandas as pd
 from pathlib import Path
@@ -8,10 +7,10 @@ from pathlib import Path
 def main(args):
     mr_df = pd.read_csv(args.mr_csv.as_posix())
     ct_df = pd.read_csv(args.ct_csv.as_posix())
-    
+
     output_dir = args.output_dir
     if not output_dir.is_dir():
-        output_dir.mkdir(parents=True)    
+        output_dir.mkdir(parents=True)
     split_csv_path = output_dir / 'pretrain.csv'
 
     df = pd.concat([ct_df, mr_df])

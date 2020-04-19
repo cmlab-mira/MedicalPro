@@ -1,6 +1,5 @@
 import logging
 import argparse
-import nibabel as nib
 from pathlib import Path
 
 import dicom2nifti
@@ -9,10 +8,10 @@ import dicom2nifti
 def main(args):
     data_dir = args.data_dir
     output_dir = args.output_dir
-    
+
     if output_dir.exists() is False:
         output_dir.mkdir(parents=True)
-    
+
     patient_paths = sorted(dir_ for dir_ in data_dir.iterdir() if dir_.is_dir())
     for path in patient_paths:
         folders = [folder for folder in path.iterdir() if folder.is_dir()]
@@ -24,12 +23,14 @@ def main(args):
                 continue
             else:
                 case_id = folder.parts[-2]
-                output_path = output_dir / f"{case_id}.nii.gz" 
+                output_path = output_dir / f"{case_id}.nii.gz"
                 try:
-                    dicom2nifti.dicom_series_to_nifti(folder.as_posix(), output_path.as_posix(), reorient_nifti=True)
-                except:
+                    dicom2nifti.dicom_series_to_nifti(folder.as_posix(),
+                                                      output_path.as_posix(),
+                                                      reorient_nifti=True)
+                except:  # noqa
                     print(f"Failed: case {case_id}.")
-                
+
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="Convert the data of LIDC-IDRI from dicom to nifti format.")

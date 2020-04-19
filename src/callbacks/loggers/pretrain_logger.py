@@ -1,5 +1,3 @@
-from torchvision.utils import make_grid
-
 from src.callbacks.loggers import BaseLogger
 
 

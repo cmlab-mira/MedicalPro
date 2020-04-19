@@ -1,23 +1,21 @@
+import argparse
 import h5py
 import logging
-import argparse
 import xmltodict
 import numpy as np
-import nibabel as nib
-from tqdm import tqdm
-from pathlib import Path
 import SimpleITK as sitk
+from pathlib import Path
+from tqdm import tqdm
 
 
 def main(args):
     input_dir = args.input_dir
     output_dir = args.output_dir
-    
+
     if output_dir.exists() is False:
         output_dir.mkdir(parents=True)
-        
+
     data_paths = sorted(input_dir.iterdir())
-    min_size = np.array([1e10, 1e10, 1e10])
     for path in tqdm(data_paths):
         filename = path.parts[-1].split('.')[0]
         mri_type = filename.split('_')[2]
@@ -34,30 +32,34 @@ def main(args):
         data = (data - vmin) / (vmax - vmin)
 
         itk_img = sitk.GetImageFromArray(data)
-        resolution_x = float(header['ismrmrdHeader']['encoding']['reconSpace']['fieldOfView_mm']['x']) / float(header['ismrmrdHeader']['encoding']['reconSpace']['matrixSize']['x'])
-        resolution_y = float(header['ismrmrdHeader']['encoding']['reconSpace']['fieldOfView_mm']['y']) / float(header['ismrmrdHeader']['encoding']['reconSpace']['matrixSize']['y'])
-        resolution_z = float(header['ismrmrdHeader']['encoding']['reconSpace']['fieldOfView_mm']['z']) / float(header['ismrmrdHeader']['encoding']['reconSpace']['matrixSize']['z'])
+        resolution_x = (float(header['ismrmrdHeader']['encoding']['reconSpace']['fieldOfView_mm']['x']) /
+                        float(header['ismrmrdHeader']['encoding']['reconSpace']['matrixSize']['x']))
+        resolution_y = (float(header['ismrmrdHeader']['encoding']['reconSpace']['fieldOfView_mm']['y']) /
+                        float(header['ismrmrdHeader']['encoding']['reconSpace']['matrixSize']['y']))
+        resolution_z = (float(header['ismrmrdHeader']['encoding']['reconSpace']['fieldOfView_mm']['z']) /
+                        float(header['ismrmrdHeader']['encoding']['reconSpace']['matrixSize']['z']))
         itk_img.SetSpacing([resolution_x, resolution_y, resolution_z])
         resampled_img = resample_to_isotropic(itk_img)
-        
+
         size = np.array(resampled_img.GetSize())
-        min_size = np.min(np.vstack([min_size, size]), axis=0)
         filename = path.parts[-1]
         sitk.WriteImage(resampled_img, (output_subdir / f'{sid}.nii.gz').as_posix())
-        
-    print(min_size)
-        
+
+
 def resample_to_isotropic(itk_img):
     w_res, h_res, d_res = itk_img.GetSpacing()[:]
     w, h, d = itk_img.GetSize()[:]
-    
+
     resized_height = h * h_res // 1.0
     resized_width = w * w_res // 1.0
     resized_depth = d * d_res // 1.0
     target_shape = [resized_depth, resized_height, resized_width]
     new_spacing = [1.0, 1.0, 1.0]
 
-    target_space = sitk.GetImageFromArray(np.ones(np.int32(list(target_shape) + [1]), dtype=np.float32), sitk.sitkFloat32)
+    target_space = sitk.GetImageFromArray(
+        np.ones(np.int32(list(target_shape) + [1]), dtype=np.float32),
+        sitk.sitkFloat32
+    )
     target_space.SetDirection(itk_img.GetDirection())
     target_space.SetSpacing(new_spacing)
     target_space.SetOrigin(itk_img.GetOrigin())
@@ -67,7 +69,7 @@ def resample_to_isotropic(itk_img):
 
     itk_img_resized = sitk.Resample(itk_img, target_space, affine.GetInverse())
     return itk_img_resized
-    
+
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="The FastMRI brain data preprocessing.")

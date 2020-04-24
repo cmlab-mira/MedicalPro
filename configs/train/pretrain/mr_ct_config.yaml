@@ -74,4 +74,4 @@ trainer:
     name: 'PretrainTrainer'
     kwargs:
         device: 'cuda:0'
-        num_epochs: 1000
+        num_epochs: 600

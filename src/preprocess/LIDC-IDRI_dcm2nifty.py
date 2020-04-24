@@ -28,7 +28,7 @@ def main(args):
                     dicom2nifti.dicom_series_to_nifti(folder.as_posix(),
                                                       output_path.as_posix(),
                                                       reorient_nifti=True)
-                except:  # noqa
+                except Exception:
                     print(f"Failed: case {case_id}.")
 
 

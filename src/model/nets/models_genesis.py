@@ -15,11 +15,13 @@ class ModelsGenesisSegNet(BaseNet):
         in_channels (int): The input channels.
         out_channels (int): The output channels.
         weight_path (str, optional): The pre-trained weight path (default: None).
-        with_decoder (bool, optional): Whether to load the weight of decoder, namely up_block[1, 2, 3]
-            (default: True). Note that this argument is only valid when weight_path is not None.
+        with_encoder (bool, optional): Whether to load the weight of encoder (default: True).
+            Note that this argument is only valid when weight_path is not None.
+        with_decoder (bool, optional): Whether to load the weight of decoder (default: True).
+            Note that this argument is only valid when weight_path is not None.
     """
 
-    def __init__(self, in_channels, out_channels, weight_path=None, with_decoder=True):
+    def __init__(self, in_channels, out_channels, weight_path=None, with_encoder=True, with_decoder=True):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -35,20 +37,22 @@ class ModelsGenesisSegNet(BaseNet):
         self.out_block = _OutBlock(num_features[1], out_channels)
 
         if weight_path is not None:
+            assert with_encoder or with_decoder
             state_dict = self.state_dict()
             if Path(weight_path).name == 'models_genesis.pth':
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')
-            else:  # For our pre-trained weight and the adapter fine-tine experiments.
+            else:  # For our saved model checkpoints.
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')['net']
                 pretrained_state_dict.pop('out_block.weight')
                 pretrained_state_dict.pop('out_block.bias')
+            if not with_encoder:
+                for key in list(pretrained_state_dict.keys()):
+                    if 'in_block' in key or 'down_block' in key:
+                        pretrained_state_dict.pop(key)
             if not with_decoder:
                 for key in list(pretrained_state_dict.keys()):
                     if 'up_block' in key:
                         pretrained_state_dict.pop(key)
-
-            pretrained_state_dict = {key: value for key, value in pretrained_state_dict.items()
-                                     if key in state_dict.keys()}
             state_dict.update(pretrained_state_dict)
             self.load_state_dict(state_dict)
 
@@ -63,6 +67,7 @@ class ModelsGenesisSegNet(BaseNet):
         features = self.up_block1(features, features3)
         features = self.up_block2(features, features2)
         features = self.up_block3(features, features1)
+
         output = self.out_block(features)
         return output
 
@@ -100,7 +105,7 @@ class ModelsGenesisClfNet(BaseNet):
             state_dict = self.state_dict()
             if Path(weight_path).name == 'models_genesis.pth':
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')
-            else:  # For our pre-trained weight and the adapter fine-tine experiments.
+            else:  # For our saved model checkpoints.
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')['net']
             pretrained_state_dict = {key: value for key, value in pretrained_state_dict.items()
                                      if key in state_dict.keys()}

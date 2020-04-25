@@ -1,3 +1,4 @@
+import itertools
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,9 +20,11 @@ class ModelsGenesisSegNet(BaseNet):
             Note that this argument is only valid when weight_path is not None.
         with_decoder (bool, optional): Whether to load the weight of decoder (default: True).
             Note that this argument is only valid when weight_path is not None.
+        frozen_modules (sequence, optional): Specify which modules should be frozen (default: None).
     """
 
-    def __init__(self, in_channels, out_channels, weight_path=None, with_encoder=True, with_decoder=True):
+    def __init__(self, in_channels, out_channels, weight_path=None,
+                 with_encoder=True, with_decoder=True, frozen_modules=None):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -56,6 +59,25 @@ class ModelsGenesisSegNet(BaseNet):
             state_dict.update(pretrained_state_dict)
             self.load_state_dict(state_dict)
 
+        if frozen_modules is not None:
+            assert 'out_block' not in frozen_modules
+            if 'encoder' in frozen_modules:
+                frozen_modules = (
+                    [frozen_module for frozen_module in frozen_modules if frozen_module != 'encoder']
+                    + ['in_block', 'down_block1', 'down_block2', 'down_block3']
+                )
+            if 'decoder' in frozen_modules:
+                frozen_modules = (
+                    [frozen_module for frozen_module in frozen_modules if frozen_module != 'decoder']
+                    + ['up_block1', 'up_block2', 'up_block3']
+                )
+            frozen_modules = set(frozen_modules)
+            for param in itertools.chain.from_iterable(
+                getattr(self, frozen_module).parameters()
+                for frozen_module in frozen_modules
+            ):
+                param.requires_grad = False
+
     def forward(self, input):
         # Encoder
         features1 = self.in_block(input)
@@ -81,9 +103,10 @@ class ModelsGenesisClfNet(BaseNet):
         in_channels (int): The input channels.
         out_channels (int): The output channels.
         weight_path (str, optional): The pre-trained weight path (default: None).
+        frozen_modules (sequence, optional): Specify which modules should be frozen (default: None).
     """
 
-    def __init__(self, in_channels, out_channels, weight_path=None):
+    def __init__(self, in_channels, out_channels, weight_path=None, frozen_modules=None):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -111,6 +134,19 @@ class ModelsGenesisClfNet(BaseNet):
                                      if key in state_dict.keys()}
             state_dict.update(pretrained_state_dict)
             self.load_state_dict(state_dict)
+
+        if frozen_modules is not None:
+            if 'encoder' in frozen_modules:
+                frozen_modules = (
+                    [frozen_module for frozen_module in frozen_modules if frozen_module != 'encoder']
+                    + ['in_block', 'down_block1', 'down_block2', 'down_block3']
+                )
+            frozen_modules = set(frozen_modules)
+            for param in itertools.chain.from_iterable(
+                getattr(self, frozen_module).parameters()
+                for frozen_module in frozen_modules
+            ):
+                param.requires_grad = False
 
     def forward(self, input):
         # Encoder

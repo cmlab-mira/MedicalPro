@@ -96,11 +96,12 @@ class DiceLoss(nn.Module):
         square (bool, optional): Whether to use the square of cardinality (default: True).
     """
 
-    def __init__(self, binary=False, with_logits=True, smooth=1.0, square=True):
+    def __init__(self, binary=False, with_logits=True, numerator_smooth=1.0, denominator_smooth=1.0, square=True):
         super().__init__()
         self.binary = binary
         self.with_logits = with_logits
-        self.smooth = smooth
+        self.numerator_smooth = numerator_smooth
+        self.denominator_smooth = denominator_smooth
         self.square = square
 
     def forward(self, output, target):
@@ -126,7 +127,7 @@ class DiceLoss(nn.Module):
             cardinality = (output ** 2).sum(reduced_dims) + (target ** 2).sum(reduced_dims)
         else:
             cardinality = output.sum(reduced_dims) + target.sum(reduced_dims)
-        loss = (1 - (2 * intersection + self.smooth) / (cardinality + self.smooth)).mean()
+        loss = (1 - (2 * intersection + self.numerator_smooth) / (cardinality + self.denominator_smooth)).mean()
         return loss
 
 

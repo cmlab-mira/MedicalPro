@@ -38,9 +38,9 @@ class LitsSegDataset(BaseDataset):
             data_path
             for patient_dir in patient_dirs
             for data_path in zip(
-                sorted(patient_dir.glob('**/volume-*.nii')),
+                sorted(patient_dir.glob('**/*volume-*.nii')),
                 (
-                    sorted(patient_dir.glob('**/volume-*.nii'))
+                    sorted(patient_dir.glob('**/*volume-*.nii'))
                     if self.csv_name == 'testing.csv'
                     else sorted(patient_dir.glob('**/segmentation-*.nii'))
                 )
@@ -51,12 +51,12 @@ class LitsSegDataset(BaseDataset):
         self.to_tensor = ToTensor()
 
     def __getitem__(self, index):
-        mr_path, gt_path = self.data_paths[index]
-        nii_img = nib.load(mr_path.as_posix())
-        mr = nii_img.get_fdata().astype(np.float32)[..., np.newaxis]
+        ct_path, gt_path = self.data_paths[index]
+        nii_img = nib.load(ct_path.as_posix())
+        ct = nii_img.get_fdata().astype(np.float32)[..., np.newaxis]
         gt = nib.load(gt_path.as_posix()).get_fdata().astype(np.int64)[..., np.newaxis]
         input_spacing = nii_img.header['pixdim'][1:4]
-
+        
         if self.type == 'train':
             transforms_kwargs = {
                 'Resample': {
@@ -70,9 +70,9 @@ class LitsSegDataset(BaseDataset):
                     'transformed': (True, False),
                 }
             }
-            mr, gt = self.transforms(mr, gt, **transforms_kwargs)
-            mr, gt = self.augments(mr, gt)
-            mr, gt = self.to_tensor(mr, gt)
+            ct, gt = self.transforms(ct, gt, **transforms_kwargs)
+            ct, gt = self.augments(ct, gt)
+            ct, gt = self.to_tensor(ct, gt)
         else:
             transforms_kwargs = {
                 'Resample': {
@@ -80,14 +80,14 @@ class LitsSegDataset(BaseDataset):
                     'orders': (1,)
                 }
             }
-            mr, = self.transforms(mr, **transforms_kwargs)
-            mr, gt = self.to_tensor(mr, gt)
-        metadata = {'input': mr, 'target': gt}
+            ct, = self.transforms(ct, **transforms_kwargs)
+            ct, gt = self.to_tensor(ct, gt)
+        metadata = {'input': ct, 'target': gt}
 
         if self.type == 'test':
             metadata.update(affine=nii_img.affine,
                             header=nii_img.header,
-                            name=re.sub(r'frame\d+', ('ED' if index % 2 == 0 else 'ES'), mr_path.name))
+                            name=re.sub(r'frame\d+', ('ED' if index % 2 == 0 else 'ES'), ct_path.name))
         return metadata
 
     def __len__(self):

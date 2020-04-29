@@ -8,7 +8,7 @@ from pathlib import Path
 def main(args):
     # Randomly split the data into k folds.
     patient_dirs = sorted(dir_ for dir_ in (args.data_dir / 'training').iterdir() if dir_.is_dir())
-    random.seed(0)
+    random.seed(4)
     folds = random.sample(patient_dirs, k=len(patient_dirs))
 
     output_dir = args.output_dir
@@ -28,6 +28,7 @@ def main(args):
             writer = csv.writer(f)
             writer.writerow(['path', 'type'])
             for path in sorted(train_folds):
+                path = args.resampled_data_dir / 'training' / path.stem
                 writer.writerow([path, 'train'])
             for path in sorted(valid_folds):
                 writer.writerow([path, 'valid'])
@@ -48,6 +49,7 @@ def main(args):
 def _parse_args():
     parser = argparse.ArgumentParser(description="The LiTS data split script.")
     parser.add_argument('data_dir', type=Path, help='The directory of the data.')
+    parser.add_argument('resampled_data_dir', type=Path, help='The directory of the resampled data.')
     parser.add_argument('output_dir', type=Path, help='The output directory of the data split files.')
     parser.add_argument('--k', type=int, choices=[5], default=5,
                         help='The number of folds for cross-validation.')

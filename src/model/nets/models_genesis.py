@@ -16,15 +16,12 @@ class ModelsGenesisSegNet(BaseNet):
         in_channels (int): The input channels.
         out_channels (int): The output channels.
         weight_path (str, optional): The pre-trained weight path (default: None).
-        with_encoder (bool, optional): Whether to load the weight of encoder (default: True).
-            Note that this argument is only valid when weight_path is not None.
-        with_decoder (bool, optional): Whether to load the weight of decoder (default: True).
+        loaded_modules (sequence, optional): Specify which modules should be loaded (default: None, all modules).
             Note that this argument is only valid when weight_path is not None.
         frozen_modules (sequence, optional): Specify which modules should be frozen (default: None).
     """
 
-    def __init__(self, in_channels, out_channels, weight_path=None,
-                 with_encoder=True, with_decoder=True, frozen_modules=None):
+    def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None, frozen_modules=None):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -40,7 +37,6 @@ class ModelsGenesisSegNet(BaseNet):
         self.out_block = _OutBlock(num_features[1], out_channels)
 
         if weight_path is not None:
-            assert with_encoder or with_decoder
             state_dict = self.state_dict()
             if Path(weight_path).name == 'models_genesis.pth':
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')
@@ -48,30 +44,33 @@ class ModelsGenesisSegNet(BaseNet):
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')['net']
                 pretrained_state_dict.pop('out_block.weight')
                 pretrained_state_dict.pop('out_block.bias')
-            if not with_encoder:
+            if loaded_modules is not None:
+                assert len(loaded_modules) > 0
+                loaded_modules = set(loaded_modules)
+                if 'encoder' in loaded_modules:
+                    loaded_modules.remove('encoder')
+                    loaded_modules.update({'in_block', 'down_block1', 'down_block2', 'down_block3'})
+                if 'decoder' in loaded_modules:
+                    loaded_modules.remove('decoder')
+                    loaded_modules.update({'up_block1', 'up_block2', 'up_block3'})
+                all_modules = {'in_block', 'down_block1', 'down_block2', 'down_block3',
+                               'up_block1', 'up_block2', 'up_block3'}
+                assert loaded_modules.issubset(all_modules)
                 for key in list(pretrained_state_dict.keys()):
-                    if 'in_block' in key or 'down_block' in key:
-                        pretrained_state_dict.pop(key)
-            if not with_decoder:
-                for key in list(pretrained_state_dict.keys()):
-                    if 'up_block' in key:
+                    if not any(loaded_module in key for loaded_module in loaded_modules):
                         pretrained_state_dict.pop(key)
             state_dict.update(pretrained_state_dict)
             self.load_state_dict(state_dict)
 
         if frozen_modules is not None:
             assert 'out_block' not in frozen_modules
-            if 'encoder' in frozen_modules:
-                frozen_modules = (
-                    [frozen_module for frozen_module in frozen_modules if frozen_module != 'encoder']
-                    + ['in_block', 'down_block1', 'down_block2', 'down_block3']
-                )
-            if 'decoder' in frozen_modules:
-                frozen_modules = (
-                    [frozen_module for frozen_module in frozen_modules if frozen_module != 'decoder']
-                    + ['up_block1', 'up_block2', 'up_block3']
-                )
             frozen_modules = set(frozen_modules)
+            if 'encoder' in frozen_modules:
+                frozen_modules.remove('encoder')
+                frozen_modules.update(['in_block', 'down_block1', 'down_block2', 'down_block3'])
+            if 'decoder' in frozen_modules:
+                frozen_modules.remove('decoder')
+                frozen_modules.update(['up_block1', 'up_block2', 'up_block3'])
             for param in itertools.chain.from_iterable(
                 getattr(self, frozen_module).parameters()
                 for frozen_module in frozen_modules
@@ -103,10 +102,12 @@ class ModelsGenesisClfNet(BaseNet):
         in_channels (int): The input channels.
         out_channels (int): The output channels.
         weight_path (str, optional): The pre-trained weight path (default: None).
+        loaded_modules (sequence, optional): Specify which modules should be loaded (default: None, encoder).
+            Note that this argument is only valid when weight_path is not None.
         frozen_modules (sequence, optional): Specify which modules should be frozen (default: None).
     """
 
-    def __init__(self, in_channels, out_channels, weight_path=None, frozen_modules=None):
+    def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None, frozen_modules=None):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -132,16 +133,26 @@ class ModelsGenesisClfNet(BaseNet):
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')['net']
             pretrained_state_dict = {key: value for key, value in pretrained_state_dict.items()
                                      if key in state_dict.keys()}
+            if loaded_modules is not None:
+                assert len(loaded_modules) > 0
+                loaded_modules = set(loaded_modules)
+                if 'encoder' in loaded_modules:
+                    loaded_modules.remove('encoder')
+                    loaded_modules.update({'in_block', 'down_block1', 'down_block2', 'down_block3'})
+                all_modules = {'in_block', 'down_block1', 'down_block2', 'down_block3'}
+                assert loaded_modules.issubset(all_modules)
+                for key in list(pretrained_state_dict.keys()):
+                    if not any(loaded_module in key for loaded_module in loaded_modules):
+                        pretrained_state_dict.pop(key)
             state_dict.update(pretrained_state_dict)
             self.load_state_dict(state_dict)
 
         if frozen_modules is not None:
-            if 'encoder' in frozen_modules:
-                frozen_modules = (
-                    [frozen_module for frozen_module in frozen_modules if frozen_module != 'encoder']
-                    + ['in_block', 'down_block1', 'down_block2', 'down_block3']
-                )
+            assert 'classifier' not in frozen_modules
             frozen_modules = set(frozen_modules)
+            if 'encoder' in frozen_modules:
+                frozen_modules.remove('encoder')
+                frozen_modules.update(['in_block', 'down_block1', 'down_block2', 'down_block3'])
             for param in itertools.chain.from_iterable(
                 getattr(self, frozen_module).parameters()
                 for frozen_module in frozen_modules

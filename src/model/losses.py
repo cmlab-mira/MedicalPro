@@ -92,7 +92,8 @@ class DiceLoss(nn.Module):
             binary classification, the activate function is sigmoid and output channel is 1
             (similar to torch.nn.BCEWithLogitsLoss and torch.nn.BCELoss) (default: False).
         with_logits (bool, optional): Specify the output is logits or probability (default: True).
-        smooth (float, optional): The smooth term (default: 1.0).
+        numerator_smooth (float, optional): The smooth term in numerator (default: 1.0).
+        denominator_smooth (float, optional): The smooth term in denominator (default: 1.0).
         square (bool, optional): Whether to use the square of cardinality (default: True).
     """
 

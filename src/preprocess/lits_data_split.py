@@ -28,7 +28,7 @@ def main(args):
             writer = csv.writer(f)
             writer.writerow(['path', 'type'])
             for path in sorted(train_folds):
-                path = args.resampled_data_dir / 'training' / path.stem
+                path = args.resampled_data_dir / 'training' / path.name
                 writer.writerow([path, 'train'])
             for path in sorted(valid_folds):
                 writer.writerow([path, 'valid'])

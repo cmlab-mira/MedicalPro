@@ -11,19 +11,19 @@ def main(args):
     output_dir = args.output_dir
     sub_folder = [input_dir / 'training', input_dir / 'testing']
     target_spacing = [2.5, 2.5, 5.0]
-    
+
     if output_dir.exists() is False:
         output_dir.mkdir(parents=True)
-        
+
     for folder in sub_folder:
         folder_name = folder.parts[-1]
         data_paths = sorted(folder.iterdir())
         for path in tqdm(data_paths):
             patient_id = path.parts[-1]
             output_subdir = output_dir / folder_name / patient_id
-            if output_subdir.exists() == False:
+            if output_subdir.exists() is False:
                 output_subdir.mkdir(parents=True)
-            
+
             if folder_name == 'training':
                 img_path = next(path.glob('*volume*'))
                 img = sitk.ReadImage(img_path.as_posix())
@@ -31,12 +31,12 @@ def main(args):
                 label = sitk.ReadImage(label_path.as_posix())
                 if img.GetSpacing() != label.GetSpacing():
                     label.SetSpacing(img.GetSpacing())
-                    
+
                 resampled_img = resample(img, target_spacing, sitk.sitkLinear)
                 resampled_label = resample(label, target_spacing, sitk.sitkNearestNeighbor)
                 sitk.WriteImage(resampled_img, (output_subdir / img_path.parts[-1]).as_posix())
                 sitk.WriteImage(resampled_label, (output_subdir / label_path.parts[-1]).as_posix())
-                
+
             elif folder_name == 'testing':
                 img_path = next(path.glob('*volume*'))
                 img = sitk.ReadImage(img_path.as_posix())
@@ -47,13 +47,16 @@ def main(args):
 def resample(itk_img, new_spacing, interpolator):
     h_res, w_res, d_res = itk_img.GetSpacing()[:]
     h, w, d = itk_img.GetSize()[:]
-    
+
     resized_height = h * h_res // new_spacing[0]
     resized_width = w * w_res // new_spacing[1]
     resized_depth = d * d_res // new_spacing[2]
     target_shape = [resized_depth, resized_height, resized_width]
 
-    target_space = sitk.GetImageFromArray(np.ones(np.int32(list(target_shape) + [1]), dtype=np.float32), sitk.sitkFloat32)
+    target_space = sitk.GetImageFromArray(
+        np.ones(np.int32(list(target_shape) + [1]), dtype=np.float32),
+        sitk.sitkFloat32
+    )
     target_space.SetDirection(itk_img.GetDirection())
     target_space.SetSpacing(new_spacing)
     target_space.SetOrigin(itk_img.GetOrigin())
@@ -66,7 +69,7 @@ def resample(itk_img, new_spacing, interpolator):
 
 
 def _parse_args():
-    parser = argparse.ArgumentParser(description="The Lits data preprocessing.")
+    parser = argparse.ArgumentParser(description="The LiTS data preprocessing.")
     parser.add_argument('input_dir', type=Path, help='The directory of the data.')
     parser.add_argument('output_dir', type=Path, help='The directory of the processed data.')
     args = parser.parse_args()

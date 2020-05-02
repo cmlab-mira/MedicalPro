@@ -56,7 +56,7 @@ class LitsSegDataset(BaseDataset):
         ct = nii_img.get_fdata().astype(np.float32)[..., np.newaxis]
         gt = nib.load(gt_path.as_posix()).get_fdata().astype(np.int64)[..., np.newaxis]
         input_spacing = nii_img.header['pixdim'][1:4]
-        
+
         if self.type == 'train':
             transforms_kwargs = {
                 'Resample': {

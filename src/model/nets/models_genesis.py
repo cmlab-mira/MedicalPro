@@ -56,6 +56,7 @@ class ModelsGenesisSegNet(BaseNet):
                 all_modules = {'in_block', 'down_block1', 'down_block2', 'down_block3',
                                'up_block1', 'up_block2', 'up_block3'}
                 assert loaded_modules.issubset(all_modules)
+
                 for key in list(pretrained_state_dict.keys()):
                     if not any(loaded_module in key for loaded_module in loaded_modules):
                         pretrained_state_dict.pop(key)
@@ -63,14 +64,18 @@ class ModelsGenesisSegNet(BaseNet):
             self.load_state_dict(state_dict)
 
         if frozen_modules is not None:
-            assert 'out_block' not in frozen_modules
+            assert len(frozen_modules) > 0
             frozen_modules = set(frozen_modules)
             if 'encoder' in frozen_modules:
                 frozen_modules.remove('encoder')
-                frozen_modules.update(['in_block', 'down_block1', 'down_block2', 'down_block3'])
+                frozen_modules.update({'in_block', 'down_block1', 'down_block2', 'down_block3'})
             if 'decoder' in frozen_modules:
                 frozen_modules.remove('decoder')
-                frozen_modules.update(['up_block1', 'up_block2', 'up_block3'])
+                frozen_modules.update({'up_block1', 'up_block2', 'up_block3'})
+            all_modules = {'in_block', 'down_block1', 'down_block2', 'down_block3',
+                           'up_block1', 'up_block2', 'up_block3'}
+            assert frozen_modules.issubset(all_modules)
+
             for param in itertools.chain.from_iterable(
                 getattr(self, frozen_module).parameters()
                 for frozen_module in frozen_modules
@@ -141,6 +146,7 @@ class ModelsGenesisClfNet(BaseNet):
                     loaded_modules.update({'in_block', 'down_block1', 'down_block2', 'down_block3'})
                 all_modules = {'in_block', 'down_block1', 'down_block2', 'down_block3'}
                 assert loaded_modules.issubset(all_modules)
+
                 for key in list(pretrained_state_dict.keys()):
                     if not any(loaded_module in key for loaded_module in loaded_modules):
                         pretrained_state_dict.pop(key)
@@ -148,11 +154,14 @@ class ModelsGenesisClfNet(BaseNet):
             self.load_state_dict(state_dict)
 
         if frozen_modules is not None:
-            assert 'classifier' not in frozen_modules
+            assert len(frozen_modules) > 0
             frozen_modules = set(frozen_modules)
             if 'encoder' in frozen_modules:
                 frozen_modules.remove('encoder')
-                frozen_modules.update(['in_block', 'down_block1', 'down_block2', 'down_block3'])
+                frozen_modules.update({'in_block', 'down_block1', 'down_block2', 'down_block3'})
+            all_modules = {'in_block', 'down_block1', 'down_block2', 'down_block3'}
+            assert frozen_modules.issubset(all_modules)
+
             for param in itertools.chain.from_iterable(
                 getattr(self, frozen_module).parameters()
                 for frozen_module in frozen_modules

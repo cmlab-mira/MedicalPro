@@ -46,7 +46,8 @@ class LitsSegPredictor(BasePredictor):
 
         if self.saved_pred:
             (affine,), (header,), (name,) = batch['affine'], batch['header'], batch['name']
-            pred = F.softmax(output, dim=1).argmax(dim=1).squeeze(dim=0).permute(1, 2, 0).contiguous()
+            _, pred = F.softmax(output, dim=1).max(dim=1)
+            pred = pred.squeeze(dim=0).permute(1, 2, 0).contiguous()
             nib.save(
                 nib.Nifti1Image(
                     pred.cpu().numpy(),

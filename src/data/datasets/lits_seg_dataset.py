@@ -22,6 +22,7 @@ class LitsSegDataset(BaseDataset):
 
     Ref: 
         https://competitions.codalab.org/competitions/17094
+        https://github.com/PatrickChrist/LITS-CHALLENGE/blob/master/submission-guide.md
 
     Args:
         data_split_file_path (str): The data split file path.
@@ -87,7 +88,7 @@ class LitsSegDataset(BaseDataset):
         if self.type == 'test':
             metadata.update(affine=nii_img.affine,
                             header=nii_img.header,
-                            name=re.sub(r'frame\d+', ('ED' if index % 2 == 0 else 'ES'), ct_path.name))
+                            name=ct_path.name.replace('volume', 'segmentation'))
         return metadata
 
     def __len__(self):

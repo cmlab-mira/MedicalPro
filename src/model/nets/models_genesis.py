@@ -20,6 +20,9 @@ class ModelsGenesisSegNet(BaseNet):
         loaded_modules (sequence, optional): Specify which modules should be loaded (default: None, all modules).
             Note that this argument is only valid when weight_path is not None.
         frozen_modules (sequence, optional): Specify which modules should be frozen (default: None).
+        weight_settings (BoxList): The setting about the loading of pre-trained weights (default: None).
+            percentage (float): What percentage of pre-trained weights are loaded.
+        norm_trainble_only (bool): Train the normalization layer only (default: False).
     """
 
     def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None, frozen_modules=None, weight_settings=None, norm_trainble_only=False):
@@ -65,7 +68,7 @@ class ModelsGenesisSegNet(BaseNet):
 
             if weight_settings is not None:
                 percentage = weight_settings.percentage
-                # Random choose some kernels of each layer to keep the randomly initialized weights
+                # Randomly choose some kernels of each layer to keep the randomly initialized weights
                 for key in list(pretrained_state_dict.keys()):
                     if ('weight' in key) and ('conv' in key):
                         conv_weight_key, conv_bias_key = key, key.replace('weight', 'bias')
@@ -137,11 +140,9 @@ class ModelsGenesisAddFeatureSegNet(BaseNet):
         in_channels (int): The input channels.
         out_channels (int): The output channels.
         weight_path (str, optional): The pre-trained weight path (default: None).
-        with_decoder (bool, optional): Whether to load the weight of decoder, namely up_block[1, 2, 3]
-            (default: True). Note that this argument is only valid when weight_path is not None.
     """
 
-    def __init__(self, in_channels, out_channels, weight_path=None, with_decoder=True):
+    def __init__(self, in_channels, out_channels, weight_path=None):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -188,11 +189,9 @@ class ModelsGenesisConcatFeatureSegNet(BaseNet):
         in_channels (int): The input channels.
         out_channels (int): The output channels.
         weight_path (str, optional): The pre-trained weight path (default: None).
-        with_decoder (bool, optional): Whether to load the weight of decoder, namely up_block[1, 2, 3]
-            (default: True). Note that this argument is only valid when weight_path is not None.
     """
 
-    def __init__(self, in_channels, out_channels, weight_path=None, with_decoder=True):
+    def __init__(self, in_channels, out_channels, weight_path=None):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -289,9 +288,12 @@ class ModelsGenesisClfNet(BaseNet):
         loaded_modules (sequence, optional): Specify which modules should be loaded (default: None, encoder).
             Note that this argument is only valid when weight_path is not None.
         frozen_modules (sequence, optional): Specify which modules should be frozen (default: None).
+        weight_settings (BoxList): The setting about the loading of pre-trained weights (default: None).
+            percentage (float): What percentage of pre-trained weights are loaded.
+        norm_trainble_only (bool): Train the normalization layer only (default: False).
     """
 
-    def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None, frozen_modules=None):
+    def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None, frozen_modules=None, weight_settings=None, norm_trainble_only=False):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -329,6 +331,29 @@ class ModelsGenesisClfNet(BaseNet):
                 for key in list(pretrained_state_dict.keys()):
                     if not any(loaded_module in key for loaded_module in loaded_modules):
                         pretrained_state_dict.pop(key)
+                        
+            if weight_settings is not None:
+                percentage = weight_settings.percentage
+                # Randomly choose some kernels of each layer to keep the randomly initialized weights
+                for key in list(pretrained_state_dict.keys()):
+                    if ('weight' in key) and ('conv' in key):
+                        conv_weight_key, conv_bias_key = key, key.replace('weight', 'bias')
+                        norm_weight_key, norm_bias_key = conv_weight_key.replace('conv', 'norm'), conv_bias_key.replace('conv', 'norm')
+                        norm_mean_key, norm_var_key = norm_weight_key.replace('weight', 'running_mean'), \
+                                                      norm_weight_key.replace('weight', 'running_var')
+                        conv_weight, conv_bias = state_dict[conv_weight_key], state_dict[conv_bias_key]
+                        norm_weight, norm_bias = state_dict[norm_weight_key], state_dict[norm_bias_key]
+                        norm_mean, norm_var = state_dict[norm_mean_key], state_dict[norm_var_key]
+                        indices = np.random.choice(conv_weight.size(0), 
+                                                   int(conv_weight.size(0) * (1 - percentage)),
+                                                   replace=False)
+                        pretrained_state_dict[conv_weight_key][indices] = conv_weight[indices]
+                        pretrained_state_dict[conv_bias_key][indices] = conv_bias[indices]
+                        pretrained_state_dict[norm_weight_key][indices] = norm_weight[indices]
+                        pretrained_state_dict[norm_bias_key][indices] = norm_bias[indices]
+                        pretrained_state_dict[norm_mean_key][indices] = norm_mean[indices]
+                        pretrained_state_dict[norm_var_key][indices] = norm_var[indices]
+                        
             state_dict.update(pretrained_state_dict)
             self.load_state_dict(state_dict)
 
@@ -346,6 +371,11 @@ class ModelsGenesisClfNet(BaseNet):
                 for frozen_module in frozen_modules
             ):
                 param.requires_grad = False
+                
+        if norm_trainble_only is True:
+            for key, params in self.named_parameters():
+                if 'norm' not in key:
+                    params.requires_grad = False
 
     def forward(self, input):
         # Encoder

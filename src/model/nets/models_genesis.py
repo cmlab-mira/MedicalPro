@@ -25,7 +25,8 @@ class ModelsGenesisSegNet(BaseNet):
         norm_trainble_only (bool): Train the normalization layer only (default: False).
     """
 
-    def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None, frozen_modules=None, weight_settings=None, norm_trainble_only=False):
+    def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None,
+                 frozen_modules=None, weight_settings=None, norm_trainble_only=False):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -61,7 +62,7 @@ class ModelsGenesisSegNet(BaseNet):
                 all_modules = {'in_block', 'down_block1', 'down_block2', 'down_block3',
                                'up_block1', 'up_block2', 'up_block3'}
                 assert loaded_modules.issubset(all_modules)
-                
+
                 for key in list(pretrained_state_dict.keys()):
                     if not any(loaded_module in key for loaded_module in loaded_modules):
                         pretrained_state_dict.pop(key)
@@ -72,13 +73,14 @@ class ModelsGenesisSegNet(BaseNet):
                 for key in list(pretrained_state_dict.keys()):
                     if ('weight' in key) and ('conv' in key):
                         conv_weight_key, conv_bias_key = key, key.replace('weight', 'bias')
-                        norm_weight_key, norm_bias_key = conv_weight_key.replace('conv', 'norm'), conv_bias_key.replace('conv', 'norm')
-                        norm_mean_key, norm_var_key = norm_weight_key.replace('weight', 'running_mean'), \
-                                                      norm_weight_key.replace('weight', 'running_var')
+                        norm_weight_key = conv_weight_key.replace('conv', 'norm')
+                        norm_bias_key = conv_bias_key.replace('conv', 'norm')
+                        norm_mean_key = norm_weight_key.replace('weight', 'running_mean')
+                        norm_var_key = norm_weight_key.replace('weight', 'running_var')
                         conv_weight, conv_bias = state_dict[conv_weight_key], state_dict[conv_bias_key]
                         norm_weight, norm_bias = state_dict[norm_weight_key], state_dict[norm_bias_key]
                         norm_mean, norm_var = state_dict[norm_mean_key], state_dict[norm_var_key]
-                        indices = np.random.choice(conv_weight.size(0), 
+                        indices = np.random.choice(conv_weight.size(0),
                                                    int(conv_weight.size(0) * (1 - percentage)),
                                                    replace=False)
                         pretrained_state_dict[conv_weight_key][indices] = conv_weight[indices]
@@ -87,10 +89,10 @@ class ModelsGenesisSegNet(BaseNet):
                         pretrained_state_dict[norm_bias_key][indices] = norm_bias[indices]
                         pretrained_state_dict[norm_mean_key][indices] = norm_mean[indices]
                         pretrained_state_dict[norm_var_key][indices] = norm_var[indices]
-                
+
             state_dict.update(pretrained_state_dict)
             self.load_state_dict(state_dict)
-        
+
         if frozen_modules is not None:
             assert len(frozen_modules) > 0
             frozen_modules = set(frozen_modules)
@@ -109,7 +111,7 @@ class ModelsGenesisSegNet(BaseNet):
                 for frozen_module in frozen_modules
             ):
                 param.requires_grad = False
-            
+
         if norm_trainble_only is True:
             for key, params in self.named_parameters():
                 if 'norm' not in key:
@@ -168,18 +170,18 @@ class ModelsGenesisAddFeatureSegNet(BaseNet):
         features2 = self.down_block1(features1)
         features3 = self.down_block2(features2)
         features = self.down_block3(features3)
-        
+
         _features1, _features2, _features3, _features4 = self.pretrained_encoder(input)
         features = features + _features4
-        
+
         # Decoder
         features = self.up_block1(features, features3 + _features3)
         features = self.up_block2(features, features2 + _features2)
         features = self.up_block3(features, features1 + _features1)
         output = self.out_block(features)
         return output
-    
-    
+
+
 class ModelsGenesisConcatFeatureSegNet(BaseNet):
     """The Models Genesis network architecture for segmentation task (similar to the 3D U-Net).
     Ref:
@@ -204,7 +206,7 @@ class ModelsGenesisConcatFeatureSegNet(BaseNet):
         self.up_block1 = _UpBlock(num_features[4] * 2 + num_features[3] * 2, num_features[3])
         self.up_block2 = _UpBlock(num_features[3] + num_features[2] * 2, num_features[2])
         self.up_block3 = _UpBlock(num_features[2] + num_features[1] * 2, num_features[1])
-        self.out_block = _OutBlock(num_features[1] , out_channels)
+        self.out_block = _OutBlock(num_features[1], out_channels)
 
         # Fix the weights
         self.pretrained_encoder = ModelsGenesisEncoder(in_channels, weight_path)
@@ -217,17 +219,17 @@ class ModelsGenesisConcatFeatureSegNet(BaseNet):
         features2 = self.down_block1(features1)
         features3 = self.down_block2(features2)
         features = self.down_block3(features3)
-        
+
         _features1, _features2, _features3, _features4 = self.pretrained_encoder(input)
         features = torch.cat([features, _features4], dim=1)
-        
+
         # Decoder
         features = self.up_block1(features, torch.cat([features3, _features3], dim=1))
         features = self.up_block2(features, torch.cat([features2, _features2], dim=1))
         features = self.up_block3(features, torch.cat([features1, _features1], dim=1))
         output = self.out_block(features)
         return output
-    
+
 
 class ModelsGenesisEncoder(BaseNet):
     """The Models Genesis network architecture for segmentation task (similar to the 3D U-Net).
@@ -253,7 +255,7 @@ class ModelsGenesisEncoder(BaseNet):
             state_dict = self.state_dict()
             if Path(weight_path).name == 'models_genesis.pth':
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')
-            else:  # For our pre-trained weight and the adapter fine-tine experiments.
+            else:  # For our saved model checkpoints.
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')['net']
                 pretrained_state_dict.pop('out_block.weight')
                 pretrained_state_dict.pop('out_block.bias')
@@ -293,7 +295,8 @@ class ModelsGenesisClfNet(BaseNet):
         norm_trainble_only (bool): Train the normalization layer only (default: False).
     """
 
-    def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None, frozen_modules=None, weight_settings=None, norm_trainble_only=False):
+    def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None,
+                 frozen_modules=None, weight_settings=None, norm_trainble_only=False):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -331,20 +334,21 @@ class ModelsGenesisClfNet(BaseNet):
                 for key in list(pretrained_state_dict.keys()):
                     if not any(loaded_module in key for loaded_module in loaded_modules):
                         pretrained_state_dict.pop(key)
-                        
+
             if weight_settings is not None:
                 percentage = weight_settings.percentage
                 # Randomly choose some kernels of each layer to keep the randomly initialized weights
                 for key in list(pretrained_state_dict.keys()):
                     if ('weight' in key) and ('conv' in key):
                         conv_weight_key, conv_bias_key = key, key.replace('weight', 'bias')
-                        norm_weight_key, norm_bias_key = conv_weight_key.replace('conv', 'norm'), conv_bias_key.replace('conv', 'norm')
-                        norm_mean_key, norm_var_key = norm_weight_key.replace('weight', 'running_mean'), \
-                                                      norm_weight_key.replace('weight', 'running_var')
+                        norm_weight_key = conv_weight_key.replace('conv', 'norm')
+                        norm_bias_key = conv_bias_key.replace('conv', 'norm')
+                        norm_mean_key = norm_weight_key.replace('weight', 'running_mean')
+                        norm_var_key = norm_weight_key.replace('weight', 'running_var')
                         conv_weight, conv_bias = state_dict[conv_weight_key], state_dict[conv_bias_key]
                         norm_weight, norm_bias = state_dict[norm_weight_key], state_dict[norm_bias_key]
                         norm_mean, norm_var = state_dict[norm_mean_key], state_dict[norm_var_key]
-                        indices = np.random.choice(conv_weight.size(0), 
+                        indices = np.random.choice(conv_weight.size(0),
                                                    int(conv_weight.size(0) * (1 - percentage)),
                                                    replace=False)
                         pretrained_state_dict[conv_weight_key][indices] = conv_weight[indices]
@@ -353,7 +357,7 @@ class ModelsGenesisClfNet(BaseNet):
                         pretrained_state_dict[norm_bias_key][indices] = norm_bias[indices]
                         pretrained_state_dict[norm_mean_key][indices] = norm_mean[indices]
                         pretrained_state_dict[norm_var_key][indices] = norm_var[indices]
-                        
+
             state_dict.update(pretrained_state_dict)
             self.load_state_dict(state_dict)
 
@@ -371,7 +375,7 @@ class ModelsGenesisClfNet(BaseNet):
                 for frozen_module in frozen_modules
             ):
                 param.requires_grad = False
-                
+
         if norm_trainble_only is True:
             for key, params in self.named_parameters():
                 if 'norm' not in key:

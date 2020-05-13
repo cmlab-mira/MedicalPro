@@ -1,6 +1,6 @@
 main:
     random_seed: 0
-    saved_dir: './models/acdc_seg/experiments/pre_trained_mr_43/data_split_4/train'
+    saved_dir: './models/acdc_seg/pre_trained_mr_43/data_split_4/train'
 
 dataset:
     name: 'AcdcSegDataset'

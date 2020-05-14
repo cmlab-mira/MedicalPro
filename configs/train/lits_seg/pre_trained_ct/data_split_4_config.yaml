@@ -65,7 +65,7 @@ monitor:
     name: 'Monitor'
     kwargs:
         mode: 'max'
-        target: 'Dice'
+        target: 'DiceLiver'
         saved_freq: 500
         valid_freq: 10
 

@@ -25,7 +25,7 @@ class Dice(nn.Module):
         # Get the one-hot encoding of the prediction and the ground truth label.
         if output.size(1) == 1:  # (N, 1, *) --> (N, 2, *)
             pred = torch.cat((1 - output, output), dim=1)
-        pred = output.argmax(dim=1, keepdim=True)
+        _, pred = output.max(dim=1, keepdim=True)
         pred = torch.zeros_like(output).scatter_(1, pred, 1)
         target = torch.zeros_like(output).scatter_(1, target, 1)
 

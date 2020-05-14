@@ -12,10 +12,10 @@ def main(args):
     output_dir = args.output_dir
     if output_dir.exists() is False:
         output_dir.mkdir(parents=True)
-    
+
     all_pred_paths = np.array([sorted(path for path in (pred_dir / 'prediction').iterdir())
                                for pred_dir in input_dir.glob('data_split_*') if pred_dir.is_dir()])
-    
+
     for i in tqdm(range(all_pred_paths.shape[1])):
         filename = all_pred_paths[0, i].name
         metadata = nib.load(all_pred_paths[0, i].as_posix())

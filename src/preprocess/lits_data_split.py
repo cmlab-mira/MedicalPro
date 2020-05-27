@@ -50,7 +50,7 @@ def _parse_args():
     parser.add_argument('data_dir', type=Path, help='The directory of the data.')
     parser.add_argument('resampled_data_dir', type=Path, help='The directory of the resampled data.')
     parser.add_argument('output_dir', type=Path, help='The output directory of the data split files.')
-    parser.add_argument('--k', type=int, choices=[3, 5], default=5,
+    parser.add_argument('--k', type=int, choices=[3, 5], default=3,
                         help='The number of folds for cross-validation.')
     parser.add_argument('--test_size', type=int, default=41, help='The number of testing data.')
     args = parser.parse_args()

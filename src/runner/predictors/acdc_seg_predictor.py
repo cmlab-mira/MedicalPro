@@ -62,6 +62,7 @@ class AcdcSegPredictor(BasePredictor):
                 'DiceLoss': dice_loss
             },
             'metrics': {
+                'Dice': dice[1:].mean(),
                 'DiceRightVentricle': dice[1],
                 'DiceMyocardium': dice[2],
                 'DiceLeftVentricle': dice[3]

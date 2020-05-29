@@ -8,12 +8,13 @@ from src.data.datasets import BaseDataset
 from src.data.transforms import Compose, ToTensor
 
 
-class AcdcAdaptDataset(BaseDataset):
-    """The dataset of the Automated Cardiac Diagnosis Challenge (ACDC) in MICCAI 2017
+class LitsAdaptDataset(BaseDataset):
+    """The dataset of the Liver Tumor Segmentation Challenge (LiTS) in MICCAI 2017
     for the self-supervised learning.
 
     Ref:
-        https://www.creatis.insa-lyon.fr/Challenge/acdc/index.html
+        https://competitions.codalab.org/competitions/17094
+        https://github.com/PatrickChrist/LITS-CHALLENGE/blob/master/submission-guide.md
 
     Args:
         data_split_file_path (str): The data split file path.
@@ -34,7 +35,7 @@ class AcdcAdaptDataset(BaseDataset):
             self.data_paths = tuple(
                 data_path
                 for patient_dir in patient_dirs
-                for data_path in sorted(patient_dir.glob('**/*frame??.nii.gz'))
+                for data_path in sorted(patient_dir.glob('**/*volume-*.nii'))
             )
         elif self.type == 'valid':
             self.data_paths = tuple(['nan'])
@@ -44,9 +45,9 @@ class AcdcAdaptDataset(BaseDataset):
         self.to_tensor = ToTensor()
 
     def __getitem__(self, index):
-        mr_path = self.data_paths[index]
-        nii_img = nib.load(mr_path.as_posix())
-        mr = nii_img.get_fdata().astype(np.float32)[..., np.newaxis]
+        ct_path = self.data_paths[index]
+        nii_img = nib.load(ct_path.as_posix())
+        ct = nii_img.get_fdata().astype(np.float32)[..., np.newaxis]
         input_spacing = nii_img.header['pixdim'][1:4]
         transforms_kwargs = {
             'Resample': {
@@ -54,10 +55,10 @@ class AcdcAdaptDataset(BaseDataset):
                 'orders': (1,)
             }
         }
-        mr, = self.preprocess(mr, **transforms_kwargs)
-        transformed_mr, = self.transforms(mr)
-        transformed_mr, mr = self.to_tensor(transformed_mr, mr, dtypes=[torch.float, torch.float])
-        metadata = {'input': transformed_mr, 'target': mr}
+        ct, = self.preprocess(ct, **transforms_kwargs)
+        transformed_ct, = self.transforms(ct)
+        transformed_ct, ct = self.to_tensor(transformed_ct, ct, dtypes=[torch.float, torch.float])
+        metadata = {'input': transformed_ct, 'target': ct}
         return metadata
 
     def __len__(self):

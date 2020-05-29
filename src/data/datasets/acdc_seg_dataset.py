@@ -20,7 +20,7 @@ class AcdcSegDataset(BaseDataset):
     """The dataset of the Automated Cardiac Diagnosis Challenge (ACDC) in MICCAI 2017
     for the segmentation task.
 
-    Ref: 
+    Ref:
         https://www.creatis.insa-lyon.fr/Challenge/acdc/index.html
 
     Args:

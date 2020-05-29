@@ -22,11 +22,11 @@ class ModelsGenesisSegNet(BaseNet):
         frozen_modules (sequence, optional): Specify which modules should be frozen (default: None).
         weight_settings (BoxList): The setting about the loading of pre-trained weights (default: None).
             percentage (float): What percentage of pre-trained weights are loaded.
-        norm_trainble_only (bool): Train the normalization layer only (default: False).
+        norm_trainable_only (bool): Train the normalization layer only (default: False).
     """
 
     def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None,
-                 frozen_modules=None, weight_settings=None, norm_trainble_only=False):
+                 frozen_modules=None, weight_settings=None, norm_trainable_only=False):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -112,7 +112,7 @@ class ModelsGenesisSegNet(BaseNet):
             ):
                 param.requires_grad = False
 
-        if norm_trainble_only is True:
+        if norm_trainable_only is True:
             for key, params in self.named_parameters():
                 if 'norm' not in key:
                     params.requires_grad = False
@@ -292,11 +292,11 @@ class ModelsGenesisClfNet(BaseNet):
         frozen_modules (sequence, optional): Specify which modules should be frozen (default: None).
         weight_settings (BoxList): The setting about the loading of pre-trained weights (default: None).
             percentage (float): What percentage of pre-trained weights are loaded.
-        norm_trainble_only (bool): Train the normalization layer only (default: False).
+        norm_trainable_only (bool): Train the normalization layer only (default: False).
     """
 
     def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None,
-                 frozen_modules=None, weight_settings=None, norm_trainble_only=False):
+                 frozen_modules=None, weight_settings=None, norm_trainable_only=False):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -376,7 +376,7 @@ class ModelsGenesisClfNet(BaseNet):
             ):
                 param.requires_grad = False
 
-        if norm_trainble_only is True:
+        if norm_trainable_only is True:
             for key, params in self.named_parameters():
                 if 'norm' not in key:
                     params.requires_grad = False

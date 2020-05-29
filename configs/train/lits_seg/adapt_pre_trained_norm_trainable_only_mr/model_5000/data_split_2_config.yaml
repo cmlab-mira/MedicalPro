@@ -1,11 +1,11 @@
 main:
     random_seed: 0
-    saved_dir: './models/lits_seg/from_scratch/data_split_4/train'
+    saved_dir: './models/lits_seg/adapt_pre_trained_norm_trainable_only_mr/model_5000/data_split_2/train'
 
 dataset:
     name: 'LitsSegDataset'
     kwargs:
-        data_split_file_path: '../lits/data_split/4.csv'
+        data_split_file_path: '../lits/data_split/2.csv'
         transforms:
             - name: 'Resample'
               kwargs:
@@ -38,6 +38,7 @@ net:
     kwargs:
         in_channels: 1
         out_channels: 3
+        weight_path: './models/lits_seg/adapt_pre_trained_norm_trainable_only_mr/train/checkpoints/model_5000.pth'
 
 losses:
     - name: 'CrossEntropyLossWrapper'

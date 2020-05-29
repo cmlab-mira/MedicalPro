@@ -20,7 +20,7 @@ class LitsSegDataset(BaseDataset):
     """The dataset of the Liver Tumor Segmentation Challenge (LiTS) in MICCAI 2017
     for the segmentation task.
 
-    Ref: 
+    Ref:
         https://competitions.codalab.org/competitions/17094
         https://github.com/PatrickChrist/LITS-CHALLENGE/blob/master/submission-guide.md
 

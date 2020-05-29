@@ -5,7 +5,7 @@ main:
 dataset:
     name: 'LitsAdaptDataset'
     kwargs:
-        data_split_file_path: '../lits/data_split/0.csv'
+        data_split_file_path: '../lits/data_split/adaptation.csv'
         preprocess:
             - name: 'Resample'
               kwargs:

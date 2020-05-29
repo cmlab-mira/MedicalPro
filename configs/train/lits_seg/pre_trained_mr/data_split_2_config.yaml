@@ -48,9 +48,6 @@ losses:
       kwargs:
           numerator_smooth: 0
           denominator_smooth: 0.0000001
-      kwargs:
-          numerator_smooth: 0
-          denominator_smooth: 0.0000001
 
 metrics:
     - name: 'Dice'

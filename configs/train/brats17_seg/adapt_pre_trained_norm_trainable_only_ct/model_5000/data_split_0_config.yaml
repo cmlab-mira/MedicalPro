@@ -15,7 +15,7 @@ dataset:
         augments:
             - name: 'RandomCrop'
               kwargs:
-                  size: [128, 128, 32]
+                  size: [96, 96, 16]
 
 dataloader:
     name: 'Dataloader'
@@ -61,7 +61,7 @@ monitor:
     name: 'Monitor'
     kwargs:
         mode: 'max'
-        target: 'Dice'
+        target: 'DiceWholeTumor'
         saved_freq: 500
         valid_freq: 10
 

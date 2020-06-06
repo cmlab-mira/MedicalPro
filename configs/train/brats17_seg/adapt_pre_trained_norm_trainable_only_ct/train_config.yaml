@@ -14,7 +14,7 @@ dataset:
             - name: 'MinMaxScale'
             - name: 'RandomCrop'
               kwargs:
-                  size: [128, 128, 32]
+                  size: [96, 96, 16]
         transforms:
             - name: 'NonLinearTransform'
               kwargs:

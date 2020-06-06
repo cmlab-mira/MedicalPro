@@ -7,8 +7,8 @@ from pathlib import Path
 
 def main(args):
     # Randomly and evenly split the data into 5 folds based on the diseases.
-    HGG_patient_dirs = sorted(dir_ for dir_ in (args.data_dir / 'HGG').iterdir() if dir_.is_dir())
-    LGG_patient_dirs = sorted(dir_ for dir_ in (args.data_dir / 'LGG').iterdir() if dir_.is_dir())
+    HGG_patient_dirs = sorted(dir_ for dir_ in (args.resampled_data_dir / 'HGG').iterdir() if dir_.is_dir())
+    LGG_patient_dirs = sorted(dir_ for dir_ in (args.resampled_data_dir / 'LGG').iterdir() if dir_.is_dir())
     random.seed(0)
     HGG_patient_dirs = tuple(random.sample(HGG_patient_dirs, k=len(HGG_patient_dirs)))
     LGG_patient_dirs = tuple(random.sample(LGG_patient_dirs, k=len(LGG_patient_dirs)))
@@ -41,7 +41,7 @@ def main(args):
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="The BraTS17 data split script.")
-    parser.add_argument('data_dir', type=Path, help='The directory of the data.')
+    parser.add_argument('resampled_data_dir', type=Path, help='The directory of the resampled data.')
     parser.add_argument('output_dir', type=Path, help='The output directory of the data split files.')
     parser.add_argument('--k', type=int, choices=[3], default=3,
                         help='The number of folds for cross-validation.')

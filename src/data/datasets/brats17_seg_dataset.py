@@ -39,7 +39,13 @@ class Brats17SegDataset(BaseDataset):
                 patient_dir / f'{patient_dir.name}_t1ce.nii.gz',
                 patient_dir / f'{patient_dir.name}_t2.nii.gz',
                 patient_dir / f'{patient_dir.name}_flair.nii.gz',
-                patient_dir / f'{patient_dir.name}_seg.nii.gz',
+                (
+                    patient_dir / f'{patient_dir.name}_seg.nii.gz'
+                    if self.type == 'train'
+                    else Path(
+                        patient_dir.as_posix().replace('brats17_resampled', 'brats17')
+                    ) / f'{patient_dir.name}_seg.nii.gz'
+                )
             )
             for patient_dir in patient_dirs
         )
@@ -50,28 +56,18 @@ class Brats17SegDataset(BaseDataset):
     def __getitem__(self, index):
         t1_path, t1ce_path, t2_path, flair_path, gt_path = self.data_paths[index]
         nii_img = nib.load(t1_path.as_posix())
-        t1 = nii_img.get_fdata()
-        t1ce = nib.load(t1ce_path.as_posix()).get_fdata()
-        t2 = nib.load(t2_path.as_posix()).get_fdata()
-        flair = nib.load(flair_path.as_posix()).get_fdata()
-        mr = np.stack([t1, t1ce, t2, flair], axis=-1).astype(np.float32)
+        t1 = nii_img.get_fdata().astype(np.float32)[..., np.newaxis]
+        t1ce = nib.load(t1ce_path.as_posix()).get_fdata().astype(np.float32)[..., np.newaxis]
+        t2 = nib.load(t2_path.as_posix()).get_fdata().astype(np.float32)[..., np.newaxis]
+        flair = nib.load(flair_path.as_posix()).get_fdata().astype(np.float32)[..., np.newaxis]
         gt = nib.load(gt_path.as_posix()).get_fdata().astype(np.int64)[..., np.newaxis]
+        gt[gt == 4] = 3
 
+        t1, t1ce, t2, flair = self.transforms(t1, t1ce, t2, flair)
+        mr = np.concatenate([t1, t1ce, t2, flair], axis=-1)
         if self.type == 'train':
-            transforms_kwargs = {
-                'Clip': {
-                    'transformed': (True, False)
-                },
-                'MinMaxScale': {
-                    'transformed': (True, False),
-                }
-            }
-            mr, gt = self.transforms(mr, gt, **transforms_kwargs)
             mr, gt = self.augments(mr, gt)
-            mr, gt = self.to_tensor(mr, gt)
-        else:
-            mr, = self.transforms(mr, **transforms_kwargs)
-            mr, gt = self.to_tensor(mr, gt)
+        mr, gt = self.to_tensor(mr, gt)
         metadata = {'input': mr, 'target': gt}
 
         if self.type == 'test':

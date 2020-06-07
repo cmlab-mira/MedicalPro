@@ -60,12 +60,12 @@ monitor:
     name: 'Monitor'
     kwargs:
         mode: 'max'
-        target: 'DiceWholeTumor'
-        saved_freq: 500
+        target: 'Dice'
+        saved_freq: 200
         valid_freq: 10
 
 trainer:
     name: 'Brats17SegTrainer'
     kwargs:
         device: 'cuda:0'
-        num_epochs: 5000
+        num_epochs: 2000

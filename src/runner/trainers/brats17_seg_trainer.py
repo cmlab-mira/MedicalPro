@@ -68,6 +68,7 @@ class Brats17SegTrainer(BaseTrainer):
             output_enhancing_tumor,
             (target == 3).to(torch.long)
         )[1]
+        dice = (dice_whole_tumor + dice_tumor_core + dice_enhancing_tumor) / 3
         return {
             'loss': loss,
             'losses': {
@@ -75,6 +76,7 @@ class Brats17SegTrainer(BaseTrainer):
                 'DiceLoss': dice_loss
             },
             'metrics': {
+                'Dice': dice,
                 'DiceWholeTumor': dice_whole_tumor,
                 'DiceTumorCore': dice_tumor_core,
                 'DiceEnhancingTumor': dice_enhancing_tumor

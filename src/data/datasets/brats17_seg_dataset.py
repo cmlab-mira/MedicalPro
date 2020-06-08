@@ -73,7 +73,7 @@ class Brats17SegDataset(BaseDataset):
         if self.type == 'test':
             metadata.update(affine=nii_img.affine,
                             header=nii_img.header,
-                            name=t1_path.parent)
+                            name=t1_path.parent.as_posix())
         return metadata
 
     def __len__(self):

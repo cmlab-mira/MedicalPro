@@ -61,7 +61,7 @@ monitor:
     name: 'Monitor'
     kwargs:
         mode: 'max'
-        target: 'Dice'
+        target: 'DiceEnhancingTumor'
         saved_freq: 200
         valid_freq: 10
 

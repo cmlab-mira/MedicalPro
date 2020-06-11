@@ -33,6 +33,9 @@ losses:
       alias: 'cross_entropy_loss'
     - name: 'DiceLoss'
       alias: 'dice_loss'
+      kwargs:
+          numerator_smooth: 0
+          denominator_smooth: 0.0000001
 
 metrics:
     - name: 'Dice'

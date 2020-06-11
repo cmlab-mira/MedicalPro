@@ -65,7 +65,7 @@ monitor:
     kwargs:
         mode: 'max'
         target: 'Dice'
-        saved_freq: 500
+        saved_freq: 150
         valid_freq: 10
 
 trainer:

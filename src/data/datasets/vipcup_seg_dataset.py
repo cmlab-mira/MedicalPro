@@ -35,12 +35,14 @@ class VipcupSegDataset(BaseDataset):
         self.csv_name = Path(data_split_file_path).name
         patient_dirs = map(Path, data_split_file[data_split_file.type == self.type].path)
         self.data_paths = tuple(
-            (patient_dir / f'{patient_dir.name}_img.nii.gz', 
             (
-                patient_dir / f'{patient_dir.name}_img.nii.gz'
-                if self.csv_name == 'testing.csv'
-                else patient_dir / f'{patient_dir.name}_label.nii.gz'
-            ))
+                patient_dir / f'{patient_dir.name}_img.nii.gz',
+                (
+                    patient_dir / f'{patient_dir.name}_img.nii.gz'
+                    if self.csv_name == 'testing.csv'
+                    else patient_dir / f'{patient_dir.name}_label.nii.gz'
+                )
+            )
             for patient_dir in patient_dirs
         )
         self.transforms = Compose.compose(transforms)

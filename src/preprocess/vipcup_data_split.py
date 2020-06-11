@@ -8,11 +8,11 @@ from pathlib import Path
 def main(args):
     # Randomly split the data into k folds.
     patient_dirs = sorted(dir_ for dir_ in (args.data_dir / 'training').iterdir() if dir_.is_dir())
-    
+
     # Testing fold, which is the official validation fold
     test_size = args.test_size
     test_folds = patient_dirs[:test_size]
-    
+
     random.seed(0)
     folds = random.sample(patient_dirs[test_size:], k=len(patient_dirs[test_size:]))
     output_dir = args.output_dir
@@ -35,7 +35,7 @@ def main(args):
                 writer.writerow([path.resolve(), 'valid'])
             for path in sorted(test_folds):
                 writer.writerow([path.resolve(), 'test'])
-                
+
     # Write adaptation split file
     csv_path = output_dir / 'adaptation.csv'
     train_folds = tuple(set(folds) - (set(test_folds)))
@@ -48,7 +48,7 @@ def main(args):
             writer.writerow([path, 'train'])
         for path in sorted(test_folds):
             writer.writerow([path.resolve(), 'test'])
-    
+
     # Write testing data split file.
     patient_dirs = sorted(dir_ for dir_ in (args.data_dir / 'testing').iterdir() if dir_.is_dir())
     csv_path = output_dir / 'testing.csv'

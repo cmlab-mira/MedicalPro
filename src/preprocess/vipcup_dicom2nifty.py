@@ -16,7 +16,7 @@ def main(args):
         dir_name = sub_dir.name
         (output_dir / 'training').mkdir(exist_ok=True)
         (output_dir / 'testing').mkdir(exist_ok=True)
-        
+
         patient_paths = sorted(dir_ for dir_ in sub_dir.iterdir() if dir_.is_dir())
         for path in patient_paths:
             folders = [folder for folder in path.iterdir() if folder.is_dir()]

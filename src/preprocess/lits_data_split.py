@@ -33,6 +33,19 @@ def main(args):
                 writer.writerow([path.resolve(), 'valid'])
             for path in sorted(test_folds):
                 writer.writerow([path.resolve(), 'test'])
+                
+    # Write adaptation split file
+    csv_path = output_dir / 'adaptation.csv'
+    train_folds = tuple(set(folds) - (set(test_folds)))
+    logging.info(f'Write the data split file to "{csv_path.resolve()}".')
+    with open(csv_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['path', 'type'])
+        for path in sorted(train_folds):
+            path = args.resampled_data_dir.resolve() / 'training' / path.name
+            writer.writerow([path, 'train'])
+        for path in sorted(test_folds):
+            writer.writerow([path.resolve(), 'test'])
 
     # Write testing data split file.
     patient_dirs = sorted(dir_ for dir_ in (args.data_dir / 'testing').iterdir() if dir_.is_dir())

@@ -50,6 +50,14 @@ class ModelsGenesisSegNet(BaseNet):
                 pretrained_state_dict.pop('out_block.weight')
                 pretrained_state_dict.pop('out_block.bias')
 
+            # Repeat the pre-trained weight along the channel axis to fit the input channels.
+            conv_weight = pretrained_state_dict['in_block.conv1.weight']
+            c = conv_weight.size(1)
+            if in_channels != c:
+                assert in_channels > c and in_channels % c == 0
+                pretrained_state_dict['in_block.conv1.weight'] = torch.cat([conv_weight] * (in_channels // c),
+                                                                           dim=1)
+
             if loaded_modules is not None:
                 assert len(loaded_modules) > 0
                 loaded_modules = set(loaded_modules)
@@ -322,6 +330,15 @@ class ModelsGenesisClfNet(BaseNet):
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')['net']
             pretrained_state_dict = {key: value for key, value in pretrained_state_dict.items()
                                      if key in state_dict.keys()}
+
+            # Repeat the pre-trained weight along the channel axis to fit the input channels.
+            conv_weight = pretrained_state_dict['in_block.conv1.weight']
+            c = conv_weight.size(1)
+            if in_channels != c:
+                assert in_channels > c and in_channels % c == 0
+                pretrained_state_dict['in_block.conv1.weight'] = torch.cat([conv_weight] * (in_channels // c),
+                                                                           dim=1)
+
             if loaded_modules is not None:
                 assert len(loaded_modules) > 0
                 loaded_modules = set(loaded_modules)

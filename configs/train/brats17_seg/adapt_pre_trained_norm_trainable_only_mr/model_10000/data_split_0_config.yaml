@@ -1,0 +1,72 @@
+main:
+    random_seed: 0
+    saved_dir: './models/brats17_seg/adapt_pre_trained_norm_trainable_only_mr/model_10000/data_split_0/train'
+
+dataset:
+    name: 'Brats17SegDataset'
+    kwargs:
+        data_split_file_path: '../brats17/data_split/0.csv'
+        transforms:
+            - name: 'Clip'
+              kwargs:
+                  mins: 0
+                  maxs: 4000
+            - name: 'MinMaxScale'
+        augments:
+            - name: 'RandomCrop'
+              kwargs:
+                  size: [96, 96, 16]
+
+dataloader:
+    name: 'Dataloader'
+    kwargs:
+        train:
+            batch_size: 8
+            drop_last: true
+        valid:
+            batch_size: 1
+            drop_last: false
+        shuffle: true
+        num_workers: 8
+
+net:
+    name: 'ModelsGenesisSegNet'
+    kwargs:
+        in_channels: 4
+        out_channels: 4
+        weight_path: './models/brats17_seg/adapt_pre_trained_norm_trainable_only_mr/train/checkpoints/model_10000.pth'
+
+losses:
+    - name: 'CrossEntropyLossWrapper'
+      alias: 'cross_entropy_loss'
+    - name: 'DiceLoss'
+      alias: 'dice_loss'
+      kwargs:
+          numerator_smooth: 0
+          denominator_smooth: 0.0000001
+
+metrics:
+    - name: 'Dice'
+      alias: 'dice'
+
+optimizer:
+    name: 'Adam'
+    kwargs:
+        lr: 0.001
+
+logger:
+    name: 'Brats17SegLogger'
+
+monitor:
+    name: 'Monitor'
+    kwargs:
+        mode: 'max'
+        target: 'DiceEnhancingTumor'
+        saved_freq: 200
+        valid_freq: 10
+
+trainer:
+    name: 'Brats17SegTrainer'
+    kwargs:
+        device: 'cuda:0'
+        num_epochs: 2000

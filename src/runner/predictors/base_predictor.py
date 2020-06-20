@@ -53,6 +53,7 @@ class BasePredictor:
             pbar.set_postfix(**epoch_log.on_step_end_log)
         test_log = epoch_log.on_epoch_end_log
         LOGGER.info(f'Test log: {test_log}.')
+        return test_log
 
     def _test_step(self, batch):
         """The user-defined testing logic.

@@ -1,11 +1,11 @@
 main:
-    saved_dir: './models/acdc_seg/pre_trained/data_split_0/test'
-    loaded_path: './models/acdc_seg/pre_trained/data_split_0/train/checkpoints/model_best.pth'
+    saved_dir: './models/acdc_seg/pre_trained_ct_fine_tuned_norm_trainable_only/data_split_2/test'
+    loaded_path: './models/acdc_seg/pre_trained_ct_fine_tuned_norm_trainable_only/data_split_2/train/checkpoints/model_best.pth'
 
 dataset:
     name: 'AcdcSegDataset'
     kwargs:
-        data_split_file_path: '../acdc/data_split/0.csv'
+        data_split_file_path: '../acdc/data_split/2.csv'
         transforms:
             - name: 'Resample'
               kwargs:

@@ -48,13 +48,8 @@ class VipcupAdaptDataset(BaseDataset):
         nii_img = nib.load(ct_path.as_posix())
         ct = nii_img.get_fdata().astype(np.float32)[..., np.newaxis]
         input_spacing = nii_img.header['pixdim'][1:4]
-        transforms_kwargs = {
-            'Resample': {
-                'input_spacings': (input_spacing,),
-                'orders': (1,)
-            }
-        }
-        ct, = self.preprocess(ct, **transforms_kwargs)
+
+        ct, = self.preprocess(ct)
         transformed_ct, = self.transforms(ct)
         transformed_ct, ct = self.to_tensor(transformed_ct, ct, dtypes=[torch.float, torch.float])
         metadata = {'input': transformed_ct, 'target': ct}

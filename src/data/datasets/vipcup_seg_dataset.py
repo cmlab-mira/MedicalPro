@@ -39,7 +39,13 @@ class VipcupSegDataset(BaseDataset):
             (
                 patient_dir / f'{patient_dir.name}_img.nii.gz'
                 if self.csv_name == 'testing.csv'
-                else patient_dir / f'{patient_dir.name}_label.nii.gz'
+                else (
+                    patient_dir / f'{patient_dir.name}_label.nii.gz'
+                    if self.type == 'train'
+                    else Path(
+                        patient_dir.as_posix().replace('vipcup_resampled', 'vipcup')
+                    ) / f'{patient_dir.name}_label.nii.gz'
+                )
             ))
             for patient_dir in patient_dirs
         )
@@ -54,31 +60,10 @@ class VipcupSegDataset(BaseDataset):
         gt = nib.load(gt_path.as_posix()).get_fdata().round().astype(np.int64)[..., np.newaxis]
         input_spacing = nii_img.header['pixdim'][1:4]
 
+        ct, = self.transforms(ct)
         if self.type == 'train':
-            transforms_kwargs = {
-                'Resample': {
-                    'input_spacings': (input_spacing, input_spacing),
-                    'orders': (1, 0)
-                },
-                'Clip': {
-                    'transformed': (True, False)
-                },
-                'MinMaxScale': {
-                    'transformed': (True, False),
-                }
-            }
-            ct, gt = self.transforms(ct, gt, **transforms_kwargs)
             ct, gt = self.augments(ct, gt)
-            ct, gt = self.to_tensor(ct, gt)
-        else:
-            transforms_kwargs = {
-                'Resample': {
-                    'input_spacings': (input_spacing,),
-                    'orders': (1,)
-                }
-            }
-            ct, = self.transforms(ct, **transforms_kwargs)
-            ct, gt = self.to_tensor(ct, gt)
+        ct, gt = self.to_tensor(ct, gt)
         metadata = {'input': ct, 'target': gt}
 
         if self.type == 'test':

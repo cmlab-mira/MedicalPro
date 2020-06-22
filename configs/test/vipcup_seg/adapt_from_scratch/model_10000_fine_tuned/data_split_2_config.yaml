@@ -1,15 +1,12 @@
 main:
-    saved_dir: './models/vipcup_seg/pre_trained/data_split_0/test'
-    loaded_path: './models/vipcup_seg/pre_trained/data_split_0/train/checkpoints/model_best.pth'
+    saved_dir: './models/vipcup_seg/adapt_from_scratch/model_10000_fine_tuned/data_split_2/test'
+    loaded_path: './models/vipcup_seg/adapt_from_scratch/model_10000_fine_tuned/data_split_2/train/checkpoints/model_best.pth'
 
 dataset:
     name: 'VipcupSegDataset'
     kwargs:
-        data_split_file_path: '../vipcup/data_split/0.csv'
+        data_split_file_path: '../vipcup_resampled/data_split/2.csv'
         transforms:
-            - name: 'Resample'
-              kwargs:
-                  output_spacing: [3, 3, 3]
             - name: 'Clip'
               kwargs:
                   mins: -1000

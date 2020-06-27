@@ -63,8 +63,6 @@ class Brats17SegPredictor(BasePredictor):
                 plt.axhline(y=test_logs[key][0], label='No cliping', color='black', linestyle='--')
                 plt.axhspan(test_logs[key][0] * 0.98, test_logs[key][0] * 1.02, color='black', alpha=0.1)
                 plt.plot(self.gamma_thresholds[1:], test_logs[key][1:], color='blue', marker='o')
-                plt.xscale('log')
-                plt.yscale('log')
                 for i, percentage in enumerate(percentages[1:], start=1):
                     plt.annotate(
                         percentage,

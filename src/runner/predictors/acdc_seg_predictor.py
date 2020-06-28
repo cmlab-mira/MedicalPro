@@ -2,24 +2,15 @@ import torch
 import nibabel as nib
 import torch.nn.functional as F
 
-from src.runner.predictors import BasePredictor
+from src.runner.predictors import GammaPredictor
 
 
-class AcdcSegPredictor(BasePredictor):
+class AcdcSegPredictor(GammaPredictor):
     """The ACDC predictor for the segmentation task.
-    Args:
-        saved_pred (bool): Whether to save the prediction (default: False).
     """
 
-    def __init__(self, saved_pred=False, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if self.test_dataloader.batch_size != 1:
-            raise ValueError(f'The testing batch size should be 1. Got {self.test_dataloader.batch_size}.')
-
-        self.saved_pred = saved_pred
-        self.output_dir = self.saved_dir / 'prediction'
-        if not self.output_dir.is_dir():
-            self.output_dir.mkdir(parents=True)
 
     def _test_step(self, batch):
         if self.test_dataloader.dataset.csv_name == 'testing.csv':
@@ -45,15 +36,17 @@ class AcdcSegPredictor(BasePredictor):
             dice = self.metric_fns.dice(F.softmax(output, dim=1), target)
 
         if self.saved_pred:
+            output_dir = self.saved_pred / 'prediction'
             (affine,), (header,), (name,) = batch['affine'], batch['header'], batch['name']
-            pred = F.softmax(output, dim=1).argmax(dim=1).squeeze(dim=0).permute(1, 2, 0).contiguous()
+            _, pred = F.softmax(output, dim=1).max(dim=1)
+            pred = pred.squeeze(dim=0).permute(1, 2, 0).contiguous()
             nib.save(
                 nib.Nifti1Image(
                     pred.cpu().numpy(),
                     affine.numpy(),
                     header
                 ),
-                (self.output_dir / name).as_posix()
+                (output_dir / name).as_posix()
             )
         return {
             'loss': loss,
@@ -62,9 +55,6 @@ class AcdcSegPredictor(BasePredictor):
                 'DiceLoss': dice_loss
             },
             'metrics': {
-                'Dice': dice[1:].mean(),
-                'DiceRightVentricle': dice[1],
-                'DiceMyocardium': dice[2],
-                'DiceLeftVentricle': dice[3]
+                'Dice': dice[1:].mean()
             }
         }

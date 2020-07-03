@@ -23,9 +23,10 @@ class GammaPredictor(BasePredictor):
 
         self.saved_pred = saved_pred
         self.plot_gamma_performance_curve = plot_gamma_performance_curve
-        gamma_thresholds = set(gamma_thresholds)
-        gamma_thresholds.add(0)
-        self.gamma_thresholds = sorted(gamma_thresholds)
+        if plot_gamma_performance_curve is True:
+            gamma_thresholds = set(gamma_thresholds)
+            gamma_thresholds.add(0)
+            self.gamma_thresholds = sorted(gamma_thresholds)
 
     def predict(self):
         if self.plot_gamma_performance_curve is False:

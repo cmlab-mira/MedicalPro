@@ -6,6 +6,8 @@ from .lits_seg_dataset import LitsSegDataset
 from .lits_adapt_dataset import LitsAdaptDataset
 from .brats17_seg_dataset import Brats17SegDataset
 from .brats17_adapt_dataset import Brats17AdaptDataset
+from .vipcup_seg_dataset import VipcupSegDataset
+from .vipcup_adapt_dataset import VipcupAdaptDataset
 
 __all__ = [
     'BaseDataset',
@@ -17,4 +19,6 @@ __all__ = [
     'LitsAdaptDataset',
     'Brats17SegDataset',
     'Brats17AdaptDataset',
+    'VipcupSegDataset',
+    'VipcupAdaptDataset',
 ]

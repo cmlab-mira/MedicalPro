@@ -3,6 +3,7 @@ from .gamma_predictor import GammaPredictor
 from .acdc_seg_predictor import AcdcSegPredictor
 from .lits_seg_predictor import LitsSegPredictor
 from .brats17_seg_predictor import Brats17SegPredictor
+from .vipcup_seg_predictor import VipcupSegPredictor
 
 __all__ = [
     'BasePredictor',
@@ -10,4 +11,5 @@ __all__ = [
     'AcdcSegPredictor',
     'LitsSegPredictor',
     'Brats17SegPredictor',
+    'VipcupSegPredictor',
 ]

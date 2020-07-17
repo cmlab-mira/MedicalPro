@@ -24,19 +24,22 @@ def main(args):
         HGG_start, HGG_end = i * HGG_unit, (i + 1) * HGG_unit
         LGG_start, LGG_end = i * LGG_unit, (i + 1) * LGG_unit
         valid_folds = HGG_patient_dirs[HGG_start:HGG_end] + LGG_patient_dirs[LGG_start:LGG_end]
-        train_folds = tuple(set(folds) - (set(test_folds) | set(valid_folds)))
+        train_folds = sorted(set(folds) - (set(test_folds) | set(valid_folds)))
 
-        csv_path = output_dir / f'{i}.csv'
+        valid_folds = valid_folds[:int(len(valid_folds) * args.ratio)]
+        train_folds = train_folds[:int(len(train_folds) * args.ratio)]
+
+        csv_path = output_dir / f'{i}_{args.ratio:.0%}.csv'
         logging.info(f'Write the data split file to "{csv_path.resolve()}".')
         with open(csv_path, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(['path', 'type'])
             for path in sorted(train_folds):
-                writer.writerow([path, 'train'])
+                writer.writerow([path.resolve(), 'train'])
             for path in sorted(valid_folds):
-                writer.writerow([path, 'valid'])
+                writer.writerow([path.resolve(), 'valid'])
             for path in sorted(test_folds):
-                writer.writerow([path, 'test'])
+                writer.writerow([path.resolve(), 'test'])
 
 
 def _parse_args():
@@ -44,6 +47,8 @@ def _parse_args():
     parser.add_argument('resampled_data_dir', type=Path, help='The directory of the resampled data.')
     parser.add_argument('output_dir', type=Path, help='The output directory of the data split files.')
     parser.add_argument('--k', type=int, choices=[3], default=3,
+                        help='The number of folds for cross-validation.')
+    parser.add_argument('--ratio', type=float, choices=[1 / 3, 2 / 3, 1], default=1,
                         help='The number of folds for cross-validation.')
     args = parser.parse_args()
     return args

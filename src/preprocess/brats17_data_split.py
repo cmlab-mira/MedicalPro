@@ -29,7 +29,11 @@ def main(args):
         valid_folds = valid_folds[:int(len(valid_folds) * args.ratio)]
         train_folds = train_folds[:int(len(train_folds) * args.ratio)]
 
-        csv_path = output_dir / f'{i}_{args.ratio:.0%}.csv'
+        csv_path = (
+            output_dir / f'{i}_{args.ratio:.0%}.csv'
+            if args.ratio < 1
+            else output_dir / f'{i}.csv'
+        )
         logging.info(f'Write the data split file to "{csv_path.resolve()}".')
         with open(csv_path, 'w', newline='') as f:
             writer = csv.writer(f)

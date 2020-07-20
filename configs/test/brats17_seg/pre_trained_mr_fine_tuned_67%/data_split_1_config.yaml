@@ -1,0 +1,44 @@
+main:
+    saved_dir: './models/brats17_seg/pre_trained_mr_fine_tuned_67%/data_split_1/test'
+    loaded_path: './models/brats17_seg/pre_trained_mr_fine_tuned_67%/data_split_1/train/checkpoints/model_best.pth'
+
+dataset:
+    name: 'Brats17SegDataset'
+    kwargs:
+        data_split_file_path: '../brats17/data_split/1_67%.csv'
+        transforms:
+            - name: 'Clip'
+              kwargs:
+                  mins: 0
+                  maxs: 4000
+            - name: 'MinMaxScale'
+
+dataloader:
+    name: 'Dataloader'
+    kwargs:
+        batch_size: 1
+        num_workers: 4
+
+net:
+    name: 'ModelsGenesisSegNet'
+    kwargs:
+        in_channels: 4
+        out_channels: 4
+
+losses:
+    - name: 'CrossEntropyLossWrapper'
+      alias: 'cross_entropy_loss'
+    - name: 'DiceLoss'
+      alias: 'dice_loss'
+      kwargs:
+          numerator_smooth: 0
+          denominator_smooth: 0.0000001
+
+metrics:
+    - name: 'Dice'
+      alias: 'dice'
+
+predictor:
+    name: 'Brats17SegPredictor'
+    kwargs:
+        device: 'cuda:0'

@@ -1,5 +1,6 @@
 import copy
 import torch
+import numpy as np
 
 __all__ = [
     'clip_gamma',
@@ -7,13 +8,20 @@ __all__ = [
 ]
 
 
-def clip_gamma(state_dict, gamma_threshold):
+def clip_gamma(state_dict, gamma_threshold, percentage=None, random=False):
     tmp_state_dict = copy.deepcopy(state_dict)
     for key in tmp_state_dict.keys():
         if ('norm' in key) and ('weight' in key):
             zeros = torch.zeros_like(tmp_state_dict[key])
-            tmp_state_dict[key] = torch.where(tmp_state_dict[key].abs() < gamma_threshold,
-                                              zeros, tmp_state_dict[key])
+            if random is False:
+                tmp_state_dict[key] = torch.where(tmp_state_dict[key].abs() < gamma_threshold,
+                                                  zeros, tmp_state_dict[key])
+            else:
+                num_channels = tmp_state_dict[key].size(0)
+                indices = np.random.choice(num_channels,
+                                           int(num_channels * percentage),
+                                           replace=False)
+                tmp_state_dict[key][indices] *= 0
     return tmp_state_dict
 
 

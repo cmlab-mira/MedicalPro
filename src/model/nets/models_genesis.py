@@ -1,3 +1,4 @@
+import copy
 import itertools
 import torch
 import torch.nn as nn
@@ -26,7 +27,8 @@ class ModelsGenesisSegNet(BaseNet):
     """
 
     def __init__(self, in_channels, out_channels, weight_path=None, loaded_modules=None,
-                 frozen_modules=None, weight_settings=None, norm_trainable_only=False):
+                 frozen_modules=None, weight_settings=None, norm_trainable_only=False, conv_trainable_only=False,
+                 norm_trainable_only_path=None):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -41,9 +43,16 @@ class ModelsGenesisSegNet(BaseNet):
         self.up_block3 = _UpBlock(num_features[2] + num_features[1], num_features[1])
         self.out_block = _OutBlock(num_features[1], out_channels)
 
+        if norm_trainable_only_path is not None:
+            self.norm_trainable_only_state_dict = torch.load(norm_trainable_only_path, map_location='cpu')['net']
+            self.norm_trainable_only_state_dict.pop('out_block.weight')
+            self.norm_trainable_only_state_dict.pop('out_block.bias')
+        
         if weight_path is not None:
             state_dict = self.state_dict()
-            if Path(weight_path).name == 'models_genesis.pth':
+            self.random_init_state_dict = copy.deepcopy(self.state_dict())
+            if Path(weight_path).name == 'models_genesis.pth' or \
+               Path(weight_path).name == 'brats17_adapt_pre_trained_ct.pth':
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')
             else:  # For our saved model checkpoints.
                 pretrained_state_dict = torch.load(weight_path, map_location='cpu')['net']
@@ -123,6 +132,10 @@ class ModelsGenesisSegNet(BaseNet):
         if norm_trainable_only is True:
             for key, params in self.named_parameters():
                 if 'norm' not in key:
+                    params.requires_grad = False
+        elif conv_trainable_only is True:
+            for key, params in self.named_parameters():
+                if 'conv' not in key:
                     params.requires_grad = False
 
     def forward(self, input):

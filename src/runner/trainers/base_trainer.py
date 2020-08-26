@@ -158,6 +158,8 @@ class BaseTrainer:
                     (loss / dataloader.grad_accumulation_steps(i)).backward()
 
                 if (i + 1) % dataloader.grad_accumulation_steps() == 0 or (i + 1) == len(dataloader):
+                    if getattr(self, '_modify_grad', None) is not None:
+                        self._modify_grad()
                     self.optimizer.step()
                     self.optimizer.zero_grad()
                     if isinstance(self.lr_scheduler, (CyclicLR, OneCycleLR)):

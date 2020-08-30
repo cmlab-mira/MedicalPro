@@ -7,6 +7,7 @@ __all__ = [
     'CrossEntropyLossWrapper',
     'DiceLoss',
     'TverskyLoss',
+    'BatchNormGammaLoss',
 ]
 
 
@@ -179,4 +180,23 @@ class TverskyLoss(nn.Module):
         loss = (
             1 - (intersection + self.smooth) / (intersection + self.alpha * fps + self.beta * fns + self.smooth)
         ).mean()
+        return loss
+
+
+class BatchNormGammaLoss(nn.Module):
+    def __init__(self, mean_weight=0.5, std_weight=0.5):
+        super().__init__()
+        self.mean_weight = mean_weight
+        self.std_weight = std_weight
+
+    def forward(self, net):
+        gammas = torch.cat(
+            [
+                m.weight
+                for m in net.modules()
+                if isinstance(m, nn.BatchNorm3d)
+            ]
+        )
+        mean, std = gammas.mean(), gammas.std()
+        loss = -self.mean_weight * mean + self.std_weight * std
         return loss

@@ -1,3 +1,4 @@
+import copy
 import logging
 import matplotlib.pyplot as plt
 
@@ -16,13 +17,14 @@ class GammaPredictor(BasePredictor):
             Note that this argument is only valid when plot_gamma_performance_curve is True.
     """
 
-    def __init__(self, saved_pred=False, plot_gamma_performance_curve=False, gamma_thresholds=None, **kwargs):
+    def __init__(self, saved_pred=False, plot_gamma_performance_curve=False, gamma_thresholds=None, random_clipping=False, **kwargs):
         super().__init__(**kwargs)
         if self.test_dataloader.batch_size != 1:
             raise ValueError(f'The testing batch size should be 1. Got {self.test_dataloader.batch_size}.')
 
         self.saved_pred = saved_pred
         self.plot_gamma_performance_curve = plot_gamma_performance_curve
+        self.random_clipping = random_clipping
         if plot_gamma_performance_curve is True:
             gamma_thresholds = set(gamma_thresholds)
             gamma_thresholds.add(0)
@@ -36,11 +38,12 @@ class GammaPredictor(BasePredictor):
             if not output_dir.is_dir():
                 output_dir.mkdir(parents=True)
 
-            state_dict = self.net.state_dict()
+            state_dict = copy.deepcopy(self.net.state_dict())
             test_logs = {}
             percentages = []
             for gamma_threshold in self.gamma_thresholds:
-                tmp_state_dict = clip_gamma(state_dict, gamma_threshold)
+                percentage = get_gamma_percentange(state_dict, gamma_threshold)
+                tmp_state_dict = clip_gamma(state_dict, gamma_threshold, percentage=percentage / 100, random=self.random_clipping)
                 self.net.load_state_dict(tmp_state_dict)
                 print()
                 LOGGER.info(f'Gamma threshold: {gamma_threshold}')
@@ -66,8 +69,8 @@ class GammaPredictor(BasePredictor):
                         textcoords='offset points',
                         ha='center'
                     )
-                plt.xlabel('Gamma threshold')
-                plt.ylabel(key)
-                plt.legend(loc='lower left')
-                figure_path = output_dir / f'{key}.png'
+                plt.xlabel('$\gamma$ threshold')
+                plt.ylabel('Dice')
+                plt.legend(loc='best')
+                figure_path = output_dir / f'{key}.pdf'
                 fig.savefig(figure_path.as_posix())
